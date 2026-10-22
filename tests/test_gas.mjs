@@ -6,6 +6,7 @@ import vm from 'node:vm';
 import crypto from 'node:crypto';
 
 const SRC = readFileSync(new URL('../src/Code.gs', import.meta.url), 'utf8');
+const CRED = { a: 'AK', pw: 'secret1' };
 const URL_OK = 'https://api.anthropic.com/v1/claude_code/routines/trig_01ABC/fire';
 
 function makeEnv({ now = new Date('2026-10-25T04:12:00Z'), fireCode = 200 } = {}) {
@@ -15,7 +16,9 @@ function makeEnv({ now = new Date('2026-10-25T04:12:00Z'), fireCode = 200 } = {}
   }).formatToParts(d).map(p => [p.type, p.value]));
   const ctx = {
     console,
-    PropertiesService: { getScriptProperties: () => ({ getProperty: k => (k in store ? store[k] : null), setProperty: (k, v) => { store[k] = String(v); } }) },
+    Session: { getActiveUser: () => ({ getEmail: () => '' }), getEffectiveUser: () => ({ getEmail: () => 'owner@example.com' }) },
+    Logger: { log() {} },
+    PropertiesService: { getScriptProperties: () => ({ getProperty: k => (k in store ? store[k] : null), setProperty: (k, v) => { store[k] = String(v); }, deleteProperty: k => { delete store[k]; } }) },
     CacheService: { getScriptCache: () => ({ get: k => cache[k] ?? null, put: (k, v) => { cache[k] = v; } }) },
     LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
     Utilities: {
@@ -54,8 +57,8 @@ function makeEnv({ now = new Date('2026-10-25T04:12:00Z'), fireCode = 200 } = {}
 
 function setup(env, extra = {}) {
   const { g } = env;
-  g.apiSetPassword('', 'secret1');
-  g.apiSave('secret1', {
+  env.store.adminKey = 'AK'; g.apiSetPassword({ a: 'AK', pw: '' }, 'secret1');
+  g.apiSave(CRED, {
     connections: [{ id: 'c1', name: 'ראשי', fireUrl: URL_OK, token: 'sk-tok' }],
     keys: [{ digit: '1', name: 'הדלקת קלוד', connectionId: 'c1', text: 'בוקר טוב', confirm: 'נשלח' }, { digit: '2', name: 'דוח', connectionId: 'c1', text: 'דוח', confirm: '' }],
     schedules: [{ enabled: true, time: '07:10', days: [0, 1, 2, 3, 4], digit: '1' }],
@@ -106,28 +109,55 @@ test('תזמון לפי שעון ישראל, פעם אחת ביום', () => {
 
 test('אבטחה: טוקנים לא חוזרים לדפדפן, כתובת זרה נדחית, סיסמה', () => {
   const env = makeEnv(); setup(env);
-  const s = JSON.stringify(env.g.apiState('secret1'));
+  const s = JSON.stringify(env.g.apiState(CRED));
   assert.ok(!s.includes('sk-tok') && !s.includes('ytok'));
   assert.match(s, /\?k=/);
-  assert.throws(() => env.g.apiState('nope'), /סיסמה שגויה/);
-  assert.throws(() => env.g.apiSave('secret1', { connections: [{ id: 'x', name: 'רע', fireUrl: 'https://evil.example/fire', token: 't' }], keys: [], schedules: [], yemot: {} }), /לא נראית/);
+  assert.throws(() => env.g.apiState({ a: 'AK', pw: 'nope' }), /סיסמה שגויה/);
+  assert.throws(() => env.g.apiSave(CRED, { connections: [{ id: 'x', name: 'רע', fireUrl: 'https://evil.example/fire', token: 't' }], keys: [], schedules: [], yemot: {} }), /לא נראית/);
   // שמירה בלי טוקן משאירה את הקיים
-  env.g.apiSave('secret1', { connections: [{ id: 'c1', name: 'ראשי', fireUrl: URL_OK, token: '' }], keys: [{ digit: '1', name: 'a', connectionId: 'c1', text: 't' }], schedules: [], yemot: { extension: '8' } });
+  env.g.apiSave(CRED, { connections: [{ id: 'c1', name: 'ראשי', fireUrl: URL_OK, token: '' }], keys: [{ digit: '1', name: 'a', connectionId: 'c1', text: 't' }], schedules: [], yemot: { extension: '8' } });
   assert.equal(JSON.parse(env.store.config).connections[0].token, 'sk-tok');
   assert.equal(env.triggers.length, 0, 'בלי תזמונים פעילים הטריגר נמחק');
-  for (let i = 0; i < 5; i++) assert.throws(() => env.g.apiState('bad'));
-  assert.throws(() => env.g.apiState('secret1'), /יותר מדי ניסיונות/);
+  for (let i = 0; i < 5; i++) assert.throws(() => env.g.apiState({ a: 'AK', pw: 'bad' }));
+  assert.throws(() => env.g.apiState(CRED), /יותר מדי ניסיונות/);
 });
 
 test('חיבור השלוחה בימות ושגיאת קלוד', () => {
   const env = makeEnv({ fireCode: 401 }); const cfg = setup(env);
-  const r = env.g.apiConnectYemot('secret1');
+  const r = env.g.apiConnectYemot(CRED);
   assert.ok(r.ok);
   const upd = env.fetches.find(f => f.url.endsWith('/UpdateExtension'));
   const body = JSON.parse(upd.o.payload);
   assert.equal(body.path, 'ivr2:8'); assert.equal(body.type, 'api');
   assert.equal(body.api_link, 'https://script.google.com/macros/s/ABC/exec?k=' + cfg.yemot.key);
-  const res = env.g.apiFireNow('secret1', '1');
+  const res = env.g.apiFireNow(CRED, '1');
   assert.equal(res.ok, false); assert.match(res.message, /הטוקן/);
   assert.match(yem(env, { k: cfg.yemot.key, ApiCallId: 'z', cw_choice: '1' }), /השליחה נכשלה/);
+});
+
+test('אבטחה: בלי קישור ניהול אין גישה, אין השתלטות ואין נעילה מבחוץ', () => {
+  const env = makeEnv();
+  // לפני שבעל הסקריפט יצר קישור: אף אחד לא יכול לבחור סיסמה
+  assert.throws(() => env.g.apiSetPassword({ a: '', pw: '' }, 'attacker1'), /NO_ACCESS/);
+  assert.throws(() => env.g.apiHasPassword({}), /NO_ACCESS/);
+  assert.equal(env.store.adminHash, undefined);
+  // פונקציות העורך לא רצות בקריאה אנונימית
+  assert.throws(() => env.g.showAdminLink(), /עורך/);
+  assert.throws(() => env.g.resetAdminAccess(), /עורך/);
+  setup(env);
+  // ניסיונות בלי הקישור לא נספרים ולא נועלים את בעל המערכת
+  for (let i = 0; i < 10; i++) assert.throws(() => env.g.apiState({ a: 'guess', pw: 'x' }), /NO_ACCESS/);
+  assert.ok(env.g.apiState(CRED));
+  assert.throws(() => env.g.apiSetPassword({ a: 'AK', pw: 'wrong' }, 'newpass1'), /סיסמה שגויה/);
+});
+
+test('בעל הסקריפט בעורך מקבל קישור ניהול', () => {
+  const env = makeEnv();
+  env.g.Session = { getActiveUser: () => ({ getEmail: () => 'owner@example.com' }), getEffectiveUser: () => ({ getEmail: () => 'owner@example.com' }) };
+  let logged = ''; env.g.Logger = { log: s => { logged = s; } };
+  env.g.showAdminLink();
+  assert.match(logged, /\/exec\?a=[0-9a-f]{32}$/);
+  const first = env.store.adminKey;
+  env.g.resetAdminAccess();
+  assert.notEqual(env.store.adminKey, first);
 });

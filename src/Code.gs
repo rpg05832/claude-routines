@@ -227,19 +227,31 @@ function ensureTicker_(on) {
 }
 
 /* ===================== API למסך ההגדרות ===================== */
-/* כל קריאה מאומתת בסיסמה. הסיסמה נשמרת כגיבוב. אחרי 5 ניסיונות שגויים: חסימה ל-15 דקות. */
+/*
+ * שתי שכבות:
+ * 1. קישור ניהול סודי (?a=...). נוצר רק מתוך עורך הסקריפט (showAdminLink), כך שרק בעל הסקריפט מקבל אותו.
+ *    בלי הקישור אי אפשר לבחור סיסמה ראשונה, וניסיונות סיסמה לא נספרים (אין נעילה מבחוץ).
+ * 2. סיסמה, שנשמרת כגיבוב. אחרי 5 ניסיונות שגויים עם קישור תקין: חסימה ל-15 דקות.
+ * cred = { a: מפתח הקישור, pw: סיסמה }
+ */
 
 function hash_(s) {
   return Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, 'claude-wake:' + s, Utilities.Charset.UTF_8));
 }
 
-function auth_(password) {
+function checkAdminKey_(cred) {
+  var key = props_().getProperty('adminKey');
+  if (!key || !cred || !safeEq_(cred.a, key)) throw new Error('NO_ACCESS');
+}
+
+function auth_(cred) {
+  checkAdminKey_(cred);
   var p = props_();
   var until = Number(p.getProperty('lockUntil') || 0);
   if (Date.now() < until) throw new Error('יותר מדי ניסיונות. נסה שוב בעוד כמה דקות');
   var h = p.getProperty('adminHash');
   if (!h) throw new Error('NO_PASSWORD');
-  if (!safeEq_(hash_(password), h)) {
+  if (!safeEq_(hash_(cred.pw), h)) {
     var fails = Number(p.getProperty('fails') || 0) + 1;
     p.setProperty('fails', String(fails));
     if (fails >= 5) { p.setProperty('lockUntil', String(Date.now() + 15 * 60000)); p.setProperty('fails', '0'); }
@@ -248,18 +260,46 @@ function auth_(password) {
   p.setProperty('fails', '0');
 }
 
-function apiHasPassword() { return !!props_().getProperty('adminHash'); }
+function apiHasPassword(cred) { checkAdminKey_(cred); return !!props_().getProperty('adminHash'); }
 
-function apiSetPassword(oldPassword, newPassword) {
+function apiSetPassword(cred, newPassword) {
+  checkAdminKey_(cred);
   if (String(newPassword || '').length < 6) throw new Error('הסיסמה צריכה לפחות 6 תווים');
-  if (props_().getProperty('adminHash')) auth_(oldPassword);
+  if (props_().getProperty('adminHash')) auth_(cred);
   props_().setProperty('adminHash', hash_(newPassword));
   return true;
 }
 
+/* ===== פונקציות להרצה מתוך עורך הסקריפט בלבד (בוחרים בתפריט ולוחצים "הפעלה") ===== */
+
+/** בעל הסקריפט בעורך. בקריאה אנונימית מהאינטרנט אין משתמש פעיל, ולכן זה נכשל. */
+function requireEditor_() {
+  var me = Session.getActiveUser().getEmail();
+  if (!me || me !== Session.getEffectiveUser().getEmail()) throw new Error('להרצה מתוך עורך הסקריפט בלבד');
+}
+
+/** מדפיס ביומן (Execution log) את קישור הניהול. יוצר מפתח בפעם הראשונה. */
+function showAdminLink() {
+  requireEditor_();
+  var p = props_();
+  if (!p.getProperty('adminKey')) p.setProperty('adminKey', randomId_(32));
+  var url = ScriptApp.getService().getUrl();
+  Logger.log(url ? 'קישור הניהול (לשמור במועדפים, לא לשתף): ' + url + '?a=' + p.getProperty('adminKey')
+    : 'קודם צריך לפרסם: Deploy, New deployment, Web app. אחר כך להריץ שוב.');
+}
+
+/** קישור ניהול חדש (הישן מפסיק לעבוד), ואיפוס הסיסמה והנעילה. למקרה שהקישור דלף או שהסיסמה נשכחה. */
+function resetAdminAccess() {
+  requireEditor_();
+  var p = props_();
+  p.setProperty('adminKey', randomId_(32));
+  p.deleteProperty('adminHash'); p.deleteProperty('lockUntil'); p.setProperty('fails', '0');
+  showAdminLink();
+}
+
 /** המצב למסך: בלי טוקנים, רק האם הם שמורים. */
-function apiState(password) {
-  auth_(password);
+function apiState(cred) {
+  auth_(cred);
   var cfg = loadConfig_();
   var url = ScriptApp.getService().getUrl() || '';
   return {
@@ -278,8 +318,8 @@ function apiState(password) {
 }
 
 /** שמירה. טוקן ריק = משאירים את הקיים. */
-function apiSave(password, data) {
-  auth_(password);
+function apiSave(cred, data) {
+  auth_(cred);
   var lock = LockService.getScriptLock(); lock.waitLock(10000);
   try {
     var cfg = loadConfig_();
@@ -287,7 +327,7 @@ function apiSave(password, data) {
     saveConfig_(cfg);
   } finally { lock.releaseLock(); }
   ensureTicker_(loadConfig_().schedules.some(function (s) { return s.enabled; }));
-  return apiState(password);
+  return apiState(cred);
 }
 
 /** מאמת ומחיל את מה שנשלח מהמסך על ההגדרות. זורק שגיאה בעברית על קלט לא תקין. */
@@ -327,8 +367,8 @@ function applySettings_(cfg, data) {
   return cfg;
 }
 
-function apiFireNow(password, digit) {
-  auth_(password);
+function apiFireNow(cred, digit) {
+  auth_(cred);
   return fireKey_(loadConfig_(), digit, 'כפתור');
 }
 
@@ -345,8 +385,8 @@ function yemotCall_(token, method, body) {
 }
 
 /** בודק את טוקן ימות ומגדיר את השלוחה כשלוחת API שמפנה לכאן. */
-function apiConnectYemot(password) {
-  auth_(password);
+function apiConnectYemot(cred) {
+  auth_(cred);
   var cfg = loadConfig_();
   if (!cfg.yemot.token) throw new Error('חסר טוקן של ימות');
   if (!cfg.yemot.extension) throw new Error('חסר מספר שלוחה');
@@ -359,10 +399,10 @@ function apiConnectYemot(password) {
 }
 
 /** מחליף את המפתח הסודי בכתובת השלוחה (אחרי זה צריך לחבר שוב את השלוחה). */
-function apiRotateYemotKey(password) {
-  auth_(password);
+function apiRotateYemotKey(cred) {
+  auth_(cred);
   var cfg = loadConfig_(); cfg.yemot.key = randomId_(24); saveConfig_(cfg);
-  return apiState(password);
+  return apiState(cred);
 }
 
-function apiClearLog(password) { auth_(password); props_().setProperty('log', '[]'); return true; }
+function apiClearLog(cred) { auth_(cred); props_().setProperty('log', '[]'); return true; }

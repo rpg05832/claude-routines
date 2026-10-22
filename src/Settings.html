@@ -171,7 +171,9 @@
 <script>
 var DAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 var pw = '';
+var A = '';   // מפתח קישור הניהול (?a=...), מתוך הכתובת
 var st = null;
+function C() { return { a: A, pw: pw }; }
 
 function $(id) { return document.getElementById(id); }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -188,6 +190,7 @@ function call(fn) {
 function fail(e) {
   var m = (e && e.message) || String(e);
   if (m === 'NO_PASSWORD') { startLogin(false); return; }
+  if (m === 'NO_ACCESS') { noAccess(); return; }
   if (/סיסמה שגויה/.test(m)) { pw = ''; try { sessionStorage.removeItem('cw'); } catch (x) {} startLogin(true); }
   toast(m);
 }
@@ -206,12 +209,12 @@ $('loginBtn').onclick = function () {
   var p = $('pw').value;
   if (!hasPw) {
     if (p !== $('pw2').value) return toast('הסיסמאות לא זהות');
-    call('apiSetPassword', '', p).then(function () { enter(p); }).catch(fail);
+    call('apiSetPassword', { a: A, pw: '' }, p).then(function () { enter(p); }).catch(fail);
   } else enter(p);
 };
 $('pw').onkeydown = function (e) { if (e.key === 'Enter' && hasPw) $('loginBtn').click(); };
 function enter(p) {
-  call('apiState', p).then(function (s) { pw = p; try { sessionStorage.setItem('cw', p); } catch (x) {} st = s; renderMain(); show('main'); }).catch(fail);
+  call('apiState', { a: A, pw: p }).then(function (s) { pw = p; try { sessionStorage.setItem('cw', p); } catch (x) {} st = s; renderMain(); show('main'); }).catch(fail);
 }
 
 /* ---------- מסך ראשי ---------- */
@@ -240,7 +243,7 @@ function renderMain() {
   Array.prototype.forEach.call(document.querySelectorAll('[data-fire]'), function (b) {
     b.onclick = function () {
       b.disabled = true;
-      call('apiFireNow', pw, b.getAttribute('data-fire')).then(function (r) {
+      call('apiFireNow', C(), b.getAttribute('data-fire')).then(function (r) {
         toast(r.ok ? 'נשלח לקלוד' : 'לא נשלח: ' + r.message); return refresh();
       }).catch(fail).then(function () { b.disabled = false; });
     };
@@ -255,8 +258,8 @@ function renderMain() {
     return '<div><span class="t">' + esc(l.at) + '</span><span class="' + (l.ok ? 'ok-t' : 'bad-t') + '">' + (l.ok ? '✓' : '✗') + '</span><span>' + esc(l.kind) + ': ' + esc(l.detail) + '</span></div>';
   }).join('') : '<p class="muted">עוד לא נשלח כלום</p>';
 }
-function refresh() { return call('apiState', pw).then(function (s) { st = s; renderMain(); }); }
-$('clearLog').onclick = function () { call('apiClearLog', pw).then(refresh).catch(fail); };
+function refresh() { return call('apiState', C()).then(function (s) { st = s; renderMain(); }); }
+$('clearLog').onclick = function () { call('apiClearLog', C()).then(refresh).catch(fail); };
 
 /* ---------- הגדרות ---------- */
 var draft = null;
@@ -351,31 +354,43 @@ function payload() {
 }
 function save() {
   $('save').disabled = true;
-  return call('apiSave', pw, payload()).then(function (s) { st = s; draft = JSON.parse(JSON.stringify(s)); renderSettings(); renderMain(); toast('נשמר'); return true; })
+  return call('apiSave', C(), payload()).then(function (s) { st = s; draft = JSON.parse(JSON.stringify(s)); renderSettings(); renderMain(); toast('נשמר'); return true; })
     .catch(function (e) { fail(e); return false; }).then(function (ok) { $('save').disabled = false; return ok; });
 }
 $('save').onclick = save;
 $('connectYemot').onclick = function () {
   save().then(function (ok) {
     if (!ok) return;
-    return call('apiConnectYemot', pw).then(function (r) { toast(r.message); return refresh(); });
+    return call('apiConnectYemot', C()).then(function (r) { toast(r.message); return refresh(); });
   }).catch(fail);
 };
 $('copyLink').onclick = function () { $('yLink').select(); try { navigator.clipboard.writeText($('yLink').value); toast('הועתק'); } catch (e) { document.execCommand('copy'); } };
 $('rotateKey').onclick = function () {
   if (!confirm('הכתובת הישנה תפסיק לעבוד. אחרי ההחלפה צריך ללחוץ שוב "שמור וחבר את השלוחה". להמשיך?')) return;
-  call('apiRotateYemotKey', pw).then(function (s) { st = s; draft.yemot = s.yemot; renderSettings(); toast('הוחלף. לחץ "שמור וחבר" כדי לעדכן את ימות'); }).catch(fail);
+  call('apiRotateYemotKey', C()).then(function (s) { st = s; draft.yemot = s.yemot; renderSettings(); toast('הוחלף. לחץ "שמור וחבר" כדי לעדכן את ימות'); }).catch(fail);
 };
 $('changePw').onclick = function () {
-  call('apiSetPassword', pw, $('newPw').value).then(function () { pw = $('newPw').value; try { sessionStorage.setItem('cw', pw); } catch (x) {} $('newPw').value = ''; toast('הסיסמה הוחלפה'); }).catch(fail);
+  call('apiSetPassword', C(), $('newPw').value).then(function () { pw = $('newPw').value; try { sessionStorage.setItem('cw', pw); } catch (x) {} $('newPw').value = ''; toast('הסיסמה הוחלפה'); }).catch(fail);
 };
 
 /* ---------- הפעלה ---------- */
+function noAccess() {
+  $('loginTitle').textContent = 'אין גישה';
+  $('loginHint').textContent = 'צריך לפתוח את המסך מקישור הניהול. בעורך הסקריפט בוחרים את הפונקציה showAdminLink, לוחצים "הפעלה", והקישור מופיע ביומן.';
+  ['pw', 'pw2Wrap', 'loginBtn'].forEach(function (id) { $(id).classList.add('hidden'); });
+  document.querySelector('label[for="pw"]').classList.add('hidden');
+  show('login');
+}
+
 (function init() {
   var saved = ''; try { saved = sessionStorage.getItem('cw') || ''; } catch (x) {}
-  call('apiHasPassword').then(function (has) {
-    if (has && saved) enter(saved); else startLogin(has);
-  }).catch(fail);
+  google.script.url.getLocation(function (loc) {
+    A = (loc && loc.parameter && loc.parameter.a) || '';
+    if (!A) return noAccess();
+    call('apiHasPassword', { a: A }).then(function (has) {
+      if (has && saved) enter(saved); else startLogin(has);
+    }).catch(fail);
+  });
 })();
 </script>
 </body>
