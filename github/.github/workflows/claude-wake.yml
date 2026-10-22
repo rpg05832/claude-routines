@@ -5,7 +5,7 @@ on:
   # בריפו פרטי: להחליף ל-'*/30 * * * *' ולהעלות את windowMinutes ב-wake.json ל-35, כדי לא לחרוג מהדקות החינמיות.
   schedule:
     - cron: '*/10 * * * *'
-  # כפתור "Run workflow" (גם מאפליקציית GitHub בנייד)
+  # כפתור "Run workflow" באתר GitHub (מהמחשב)
   workflow_dispatch:
     inputs:
       key:
