@@ -1,4 +1,4 @@
-// הפעולות שהממשק קורא להן (/api/...), לשלושת המסלולים: google, claude, github.
+// הפעולות שהממשק קורא להן (/api/...), לארבעת המסלולים: google, claude, github, pc.
 import { loadLocal, saveLocal, ensureAdminKey, addLocalLog, log } from './store.mjs';
 import { applySettings, publicSettings, israelOffsetMinutes, nextDstChange } from './settings.mjs';
 import * as google from './google.mjs';
@@ -6,6 +6,7 @@ import * as cc from './claudecode.mjs';
 import { GitHub, syncRepo } from './github.mjs';
 import { fire, connectYemot } from './direct.mjs';
 import { callRemote } from './remote.mjs';
+import * as pc from './pc.mjs';
 
 export const LINKS = {
   apiSettings: () => google.API_SETTINGS_URL,
@@ -47,7 +48,8 @@ export function makeRoutes({ appVersion, openUrl }) {
         nextDst: dst ? dst.toISOString() : '',
       },
       github: { connected: !!(l.github.token && l.github.repo), repo: l.github.repo, isPrivate: l.github.isPrivate },
-      localLog: l.localLog,
+      pc: { ...l.pc, modernStandby: modernStandby() },
+      localLog: l.mode === 'pc' ? [...pc.readPcLog(), ...l.localLog].slice(0, 40) : l.localLog,
     };
   }
 
@@ -72,8 +74,16 @@ export function makeRoutes({ appVersion, openUrl }) {
       saveLocal({ github: { tokensSent: sent } });
       return 'נשמר והועלה ל-GitHub';
     }
+    if (l.mode === 'pc') {
+      if (!l.pc.profileKey) return 'נשמר במחשב. יירשם במתזמן המשימות אחרי בחירת פרופיל.';
+      pc.writePcConfig(l.pc, l.settings);
+      const r = pc.syncTasks(l.settings, l.pc);
+      return r.tasks ? 'נשמר ונרשם במתזמן המשימות של Windows' : 'נשמר (אין תזמונים פעילים)';
+    }
     return 'נשמר';
   }
+  let msCache = null;
+  const modernStandby = () => (msCache === null ? (msCache = pc.isModernStandby()) : msCache);
 
   return {
     ping: async () => ({ ok: true }),
@@ -81,7 +91,10 @@ export function makeRoutes({ appVersion, openUrl }) {
     status: async () => status(),
 
     'mode/set': async (b) => {
-      if (!['google', 'claude', 'github'].includes(b.mode)) throw new Error('מסלול לא מוכר');
+      if (!['google', 'claude', 'github', 'pc'].includes(b.mode)) throw new Error('מסלול לא מוכר');
+      const prev = loadLocal().mode;
+      // יוצאים ממסלול המחשב: המשימות במתזמן נמחקות, כדי שלא יישלחו הודעות כפולות
+      if (prev === 'pc' && b.mode !== 'pc') { try { pc.removeTasks(); } catch (e) { log('pc', 'remove', e.message); } }
       saveLocal({ mode: b.mode });
       return status();
     },
@@ -111,6 +124,12 @@ export function makeRoutes({ appVersion, openUrl }) {
       const key = l.settings.keys.find(k => k.digit === String(b.digit));
       if (!key) throw new Error('אין מקש ' + b.digit);
       let r;
+      if (l.mode === 'pc') {
+        if (!l.pc.profileKey) throw new Error('צריך לבחור פרופיל של דפדפן');
+        pc.writePcConfig(l.pc, l.settings);
+        pc.runNow(key.digit);
+        return { ok: true, started: true, message: 'הדפדפן נפתח עכשיו. לא לגעת במקלדת ובעכבר כמה שניות. התוצאה תופיע ביומן.' };
+      }
       if (l.mode === 'claude') {
         r = await cc.runKeyNow({ settings: l.settings, state: l.claude, digit: key.digit });
         if (r.manual) saveLocal({ claude: { manual: { ...l.claude.manual, ...r.manual } } });
@@ -164,6 +183,17 @@ export function makeRoutes({ appVersion, openUrl }) {
       catch (e) { return { reachable: false, needsAuth: e.code === 'NEEDS_AUTH', blocked: e.code === 'BLOCKED', message: e.message }; }
     },
     'google/authorized': async () => { saveLocal({ google: { authorized: true } }); return status(); },
+
+    /* ----- מהמחשב ----- */
+    'pc/profiles': async () => pc.listProfiles().map(p => ({ key: p.key, browser: p.browser, label: p.label, email: p.email })),
+    'pc/save': async (b) => guard('שמירה', async () => {
+      const l = loadLocal();
+      const next = pc.applyPc(l.pc, b.data || {});
+      if (next.profileKey && !pc.listProfiles().some(p => p.key === next.profileKey)) throw new Error('הפרופיל לא נמצא במחשב');
+      const saved = saveLocal({ pc: next });
+      return { message: await pushSettings(saved), status: status() };
+    }),
+    'pc/log': async () => pc.readPcLog(),
 
     /* ----- Claude Code (מסלול claude.ai) ----- */
     'claude/detect': async () => cc.detect(),

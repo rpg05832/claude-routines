@@ -80,3 +80,5 @@ h3 { font-size: 16px; margin: 14px 0 6px; }
 table.mini { border-collapse: collapse; margin: 6px 0 4px; }
 table.mini td { padding: 4px 10px; border-bottom: 1px solid var(--line); font-size: 15px; }
 table.mini td:first-child { color: var(--muted); }
+details.adv { margin-top: 12px; }
+details.adv summary { cursor: pointer; color: var(--accent); }

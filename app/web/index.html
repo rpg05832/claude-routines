@@ -20,7 +20,7 @@
       <p>התוכנה מגדירה פעם אחת מערכת קטנה בענן ששולחת הודעה קבועה ל-Claude Code בשעות שתבחר, כדי שחלון השימוש של 5 השעות יתחיל מראש. במסלול גוגל אפשר גם להפעיל מהטלפון הכשר דרך ימות המשיח.</p>
       <p>אחרי ההגדרה <b>המחשב לא צריך להיות דלוק</b>. התוכנה הזאת נחוצה רק כדי לשנות הגדרות.</p>
       <div class="note card">
-        <p><b>צריך מנוי Claude בתשלום: Pro, Max, Team או Enterprise.</b> במנוי החינמי אין רוטינות, ולכן התוכנה לא תעבוד בו.</p>
+        <p><b>מסלולי הענן (גוגל, claude.ai, GitHub) דורשים מנוי Claude בתשלום: Pro, Max, Team או Enterprise.</b> במנוי החינמי אין רוטינות. <b>במנוי החינמי</b> בוחרים במסלול <b>"מהמחשב"</b>: הוא שולח הודעת צ'אט רגילה בדפדפן, ודורש שהמחשב יהיה דלוק.</p>
         <p class="muted">לא צריך API בתשלום ולא מפתח API: "טריגר API" של רוטינה כלול במנוי. כל הדלקה נספרת במכסת השימוש הרגילה, כמו שימוש רגיל ב-Claude Code, ועולה מעט מאוד.</p>
       </div>
       <div class="actions"><button class="primary" data-next>מתחילים</button></div>
@@ -43,6 +43,11 @@
           <b>GitHub</b><span class="tag">בלי טלפון</span>
           <span>התזמון רץ ב-GitHub Actions בריפו שלך. צריך חשבון GitHub וטוקן.</span>
           <span class="muted">GitHub מאחר לפעמים בכמה דקות.</span>
+        </button>
+        <button class="mode" data-mode="pc">
+          <b>מהמחשב</b><span class="tag">גם במנוי החינמי</span>
+          <span>בשעה שנקבעה הדפדפן נפתח עם הפרופיל שלך ב-claude.ai, ושולח הודעת צ'אט רגילה. מתזמן המשימות של Windows מפעיל את השליחה, כך שלא צריך להשאיר תוכנה פתוחה.</span>
+          <span class="muted">המחשב צריך להיות דלוק ולא נעול בשעה הזאת. בלי טלפון.</span>
         </button>
       </div>
     </div>
@@ -163,6 +168,47 @@
     </div>
 
     <!-- ----- משותף ----- -->
+    <!-- ----- מהמחשב ----- -->
+    <div class="card step" data-step="pc-browser">
+      <h2>הדפדפן והפרופיל</h2>
+      <p>בוחרים את הפרופיל של Chrome, Edge או Brave שבו אתה <b>מחובר ל-claude.ai</b>. הדפדפן נפתח רגיל לגמרי, עם הפרופיל הזה.</p>
+      <label for="pcProfile">פרופיל</label>
+      <select id="pcProfile"></select>
+      <label for="pcUrl">כתובת</label>
+      <input id="pcUrl" dir="ltr" value="https://claude.ai/new">
+      <label class="inline"><input type="checkbox" id="pcEnter" checked> ללחוץ גם Enter (לשלוח). בלי הסימון, הטקסט רק נכתב בתיבה.</label>
+      <details class="adv"><summary>אפשרויות מתקדמות</summary>
+        <div class="row">
+          <div><label for="pcMinWait">שניות המתנה לפני הניסיון הראשון</label><input id="pcMinWait" type="number" min="0" max="60" value="3"></div>
+          <div><label for="pcMaxWait">מקסימום שניות לטעינת הדף</label><input id="pcMaxWait" type="number" min="10" max="600" value="60"></div>
+          <div><label for="pcTabs">לחיצות Tab (0 = השדה כבר מסומן, כמו ב-Claude)</label><input id="pcTabs" type="number" min="0" max="30" value="0"></div>
+        </div>
+        <p class="muted">בחיבור איטי כדאי להעלות את המקסימום ל-120 או 180. זה לא מאט חיבור מהיר: השליחה קורית ברגע שהדף מוכן.</p>
+      </details>
+      <div class="status-line" id="pcStatus"></div>
+      <div class="actions"><button class="primary" id="pcSave">שמירה</button><button id="pcTest">שליחת בדיקה עכשיו</button><button data-next id="pcNext" disabled>המשך</button></div>
+      <p class="muted">בשליחת בדיקה הדפדפן נפתח ומקליד. <b>לא לגעת במקלדת ובעכבר כמה שניות.</b> טקסט שהיה בלוח (Ctrl+C) חוזר אליו, אבל תמונה או קובץ שהועתקו יימחקו מהלוח.</p>
+    </div>
+
+    <div class="card step" data-step="pc-power">
+      <h2>חשמל ושינה</h2>
+      <p>בשעת השליחה המחשב צריך להיות <b>דלוק ולא נעול</b>. האפשרויות כאן עוזרות לזה:</p>
+      <label class="inline"><input type="checkbox" id="pcAwake" checked> לשמור על המחשב ער עד השליחה (המסך נשאר דלוק; אפשר להחשיך אותו ידנית)</label>
+      <label class="inline"><input type="checkbox" id="pcScreenOff"> לאפשר למסך לכבות (המחשב נשאר ער, והמסך נדלק בשעת השליחה)</label>
+      <p class="muted hidden" id="pcMsNote">במחשב הזה כיבוי המסך מרדים אותו (Modern Standby), ולכן האפשרות הזאת לא זמינה.</p>
+      <div class="row">
+        <div><label for="pcBattery">על סוללה: להפסיק לשמור ער מתחת ל-% </label><input id="pcBattery" type="number" min="0" max="100" value="20"></div>
+        <div><label class="inline"><input type="checkbox" id="pcWake" checked> להעיר את המחשב משינה לשליחה (אם המחשב תומך)</label></div>
+      </div>
+      <ul class="bul muted">
+        <li>אם המחשב היה כבוי או ישן בשעה, ההודעה לא תישלח באיחור כשהוא נדלק.</li>
+        <li>המשימות נשמרות במתזמן המשימות של Windows, ולכן ממשיכות גם אחרי הפעלה מחדש. לא צריך להשאיר את התוכנה פתוחה.</li>
+        <li>לא ניתן למנוע: סגירת מכסה של מחשב נייד, כפתור ההפעלה, או הפעלה מחדש של עדכוני Windows.</li>
+      </ul>
+      <div class="status-line" id="pcPowerStatus"></div>
+      <div class="actions"><button class="primary" id="pcPowerSave">שמירה</button></div>
+    </div>
+
     <div class="card step" data-step="schedule">
       <h2>מתי להדליק, ומה לשלוח?</h2>
       <label for="wzText">ההודעה שנשלחת לקלוד</label>
@@ -224,6 +270,7 @@
       <button data-tab="t-sched">תזמונים</button>
       <button data-tab="t-conn" data-modes="google github">חיבור לקלוד</button>
       <button data-tab="t-yemot" data-modes="google">ימות המשיח</button>
+      <button data-tab="t-pc" data-modes="pc">דפדפן ומחשב</button>
       <button data-tab="t-adv">מתקדם</button>
     </div>
 
@@ -264,6 +311,26 @@
         <div><label class="inline"><input type="checkbox" id="yClearPin"> בלי קוד כניסה</label></div>
       </div>
       <p class="muted">בשמירה התוכנה מעדכנת את הסקריפט ומחברת את השלוחה לבד.</p>
+    </div>
+
+    <div id="t-pc" class="tab card hidden">
+      <h2>דפדפן ומחשב</h2>
+      <label for="sPcProfile">פרופיל (מחובר ל-claude.ai)</label>
+      <select id="sPcProfile"></select>
+      <label for="sPcUrl">כתובת</label>
+      <input id="sPcUrl" dir="ltr">
+      <label class="inline"><input type="checkbox" id="sPcEnter"> ללחוץ גם Enter (לשלוח)</label>
+      <div class="row">
+        <div><label for="sPcMinWait">שניות לפני הניסיון הראשון</label><input id="sPcMinWait" type="number" min="0" max="60"></div>
+        <div><label for="sPcMaxWait">מקסימום שניות לטעינה</label><input id="sPcMaxWait" type="number" min="10" max="600"></div>
+        <div><label for="sPcTabs">לחיצות Tab</label><input id="sPcTabs" type="number" min="0" max="30"></div>
+      </div>
+      <label class="inline"><input type="checkbox" id="sPcAwake"> לשמור על המחשב ער עד השליחה</label>
+      <label class="inline"><input type="checkbox" id="sPcScreenOff"> לאפשר למסך לכבות</label>
+      <div class="row">
+        <div><label for="sPcBattery">על סוללה: להפסיק לשמור ער מתחת ל-%</label><input id="sPcBattery" type="number" min="0" max="100"></div>
+        <div><label class="inline"><input type="checkbox" id="sPcWake"> להעיר את המחשב משינה לשליחה</label></div>
+      </div>
     </div>
 
     <div id="t-adv" class="tab card hidden">

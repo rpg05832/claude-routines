@@ -17,7 +17,7 @@ const env = {
   ...process.env, CLAUDE_WAKE_DATA: data, CLAUDE_WAKE_CLASP: join(here, 'fake-clasp.mjs'), FAKE_STATE: join(data, 'fake-clasp.json'),
   CLAUDE_WAKE_CLAUDE: join(here, 'fake-claude.mjs'), FAKE_CLAUDE_STATE: join(data, 'fake-claude.json'),
   CLAUDE_WAKE_SCRIPT_SRC: join(root, 'src'), CLAUDE_WAKE_EXEC_BASE: 'http://127.0.0.1:8790', CLAUDE_WAKE_NO_EXTERNAL: '1',
-  CLAUDE_WAKE_DEV_PORT: '8789', CLAUDE_WAKE_DEV_TOKEN: 'dev',
+  CLAUDE_WAKE_DEV_PORT: '8789', CLAUDE_WAKE_DEV_TOKEN: 'dev', CLAUDE_WAKE_FAKE_TASKS: join(data, 'fake-tasks.json'),
   ...(flag('--block') ? { FAKE_BLOCK: '1' } : {}), ...(flag('--noenv') ? { FAKE_CLAUDE_NOENV: '1' } : {}),
 };
 const g = spawn(process.execPath, [join(here, 'fake-google.mjs'), '8790', join(data, 'script')], { stdio: 'inherit', env });

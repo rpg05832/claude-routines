@@ -4,17 +4,19 @@ import { readFileSync, writeFileSync, mkdirSync, appendFileSync, renameSync } fr
 import { randomBytes } from 'node:crypto';
 import { DATA_DIR, CONFIG_FILE, LOG_FILE } from './paths.mjs';
 import { defaultSettings } from './settings.mjs';
+import { defaultPc } from './pc.mjs';
 
 const LOCAL_LOG_MAX = 40;
 
 export function defaults() {
   return {
-    mode: '',            // google | claude | github
+    mode: '',            // google | claude | github | pc
     wizardDone: false,
     settings: defaultSettings(),
     google: { scriptId: '', deploymentId: '', execUrl: '', adminKey: '', deployedVersion: '', email: '', authorized: false, configSavedAt: '' },
     claude: { envId: '', routines: {}, manual: {}, offset: null, lastSync: '' },
     github: { token: '', owner: '', repo: '', isPrivate: false, tokensSent: {}, branch: 'main' },
+    pc: defaultPc(),
     localLog: [],
   };
 }
@@ -24,7 +26,7 @@ export function loadLocal(file = CONFIG_FILE) {
   try { raw = JSON.parse(readFileSync(file, 'utf8')); } catch { /* קובץ חדש */ }
   const d = defaults();
   const out = { ...d, ...raw };
-  for (const k of ['settings', 'google', 'claude', 'github']) out[k] = { ...d[k], ...(raw[k] || {}) };
+  for (const k of ['settings', 'google', 'claude', 'github', 'pc']) out[k] = { ...d[k], ...(raw[k] || {}) };
   out.settings.yemot = { ...d.settings.yemot, ...(raw.settings?.yemot || {}) };
   // גרסה 1.0: פרטי גוגל ישירות בשורש
   for (const k of ['scriptId', 'deploymentId', 'execUrl', 'adminKey', 'deployedVersion']) if (raw[k] && !out.google[k]) out.google[k] = raw[k];
@@ -36,7 +38,7 @@ export function saveLocal(patch, file = CONFIG_FILE) {
   mkdirSync(DATA_DIR, { recursive: true });
   const cur = loadLocal(file);
   const next = { ...cur, ...patch };
-  for (const k of ['google', 'claude', 'github']) if (patch[k]) next[k] = { ...cur[k], ...patch[k] };
+  for (const k of ['google', 'claude', 'github', 'pc']) if (patch[k]) next[k] = { ...cur[k], ...patch[k] };
   const tmp = file + '.tmp';
   writeFileSync(tmp, JSON.stringify(next, null, 2), 'utf8');
   renameSync(tmp, file);

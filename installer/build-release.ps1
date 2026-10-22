@@ -12,7 +12,7 @@ function Step($t) { Write-Host "== $t" }
 
 Step 'clean'
 if (Test-Path $out) { Remove-Item $out -Recurse -Force }
-foreach ($d in 'app\web', 'app\script', 'app\clasp', 'app\github', 'runtime') { New-Item -ItemType Directory -Force -Path (Join-Path $app $d) | Out-Null }
+foreach ($d in 'app\web', 'app\script', 'app\clasp', 'app\github', 'app\pc', 'runtime') { New-Item -ItemType Directory -Force -Path (Join-Path $app $d) | Out-Null }
 
 Step 'bundle clasp (esbuild)'
 if (-not (Test-Path (Join-Path $deps 'node_modules\@google\clasp'))) {
@@ -46,6 +46,7 @@ try {
 
 Step 'app files'
 Copy-Item (Join-Path $root 'github\wake.py') (Join-Path $app 'app\github')
+Copy-Item (Join-Path $root 'app\pc\*') (Join-Path $app 'app\pc')   # send.ps1 / keepawake.ps1 with BOM, run-hidden.vbs
 Copy-Item (Join-Path $root 'app\web\*') (Join-Path $app 'app\web')
 Copy-Item (Join-Path $root 'src\Code.gs'), (Join-Path $root 'src\appsscript.json') (Join-Path $app 'app\script')
 Copy-Item (Join-Path $inst 'launcher.vbs') $app

@@ -39,6 +39,10 @@ Name: "{userdesktop}\הדלקת קלוד"; Filename: "{sys}\wscript.exe"; Parame
 [Run]
 Filename: "{win}\explorer.exe"; Parameters: """{userdesktop}\הדלקת קלוד.lnk"""; Description: "פתיחת אשף ההגדרה"; Flags: postinstall nowait skipifsilent
 
+[UninstallRun]
+; מסלול "מהמחשב": מוחקים את המשימות של התוכנה במתזמן המשימות של Windows
+Filename: "powershell.exe"; Parameters: "-NoProfile -NonInteractive -Command ""Get-ScheduledTask -TaskPath '\ClaudeWake\' -ErrorAction SilentlyContinue | Unregister-ScheduledTask -Confirm:$false"""; Flags: runhidden waituntilterminated; RunOnceId: "RemoveTasks"
+
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\app"
 
