@@ -172,25 +172,45 @@ function handleYemot_(p, cfg) {
 }
 
 /* ===================== נקודות כניסה ===================== */
+/*
+ * GET/POST עם k=...   : שלוחת API של ימות המשיח (מפתח סודי בכתובת השלוחה)
+ * POST עם גוף JSON    : תוכנת הניהול במחשב. {a: מפתח ניהול, op: פעולה, args: {...}}. תשובה: JSON.
+ * GET בלי פרמטרים     : דף קצר שמאשר שהסקריפט פועל (בפתיחה ראשונה גוגל מבקש לאשר הרשאות).
+ */
+
+var SCRIPT_VERSION = '1.0.0';
 
 function doGet(e) { return route_(e); }
 function doPost(e) { return route_(e); }
 
 function route_(e) {
   var p = (e && e.parameter) || {};
-  if (p.k !== undefined) {
-    var cfg = loadConfig_();
-    var body;
-    if (!safeEq_(p.k, cfg.yemot.key)) body = say_('אין גישה') + '&' + hangup_();
-    else {
-      try { body = handleYemot_(p, cfg); }
-      catch (err) { addLog_('טלפון', 'תקלה: ' + err.message, false); body = say_('תקלה זמנית') + '&' + hangup_(); }
-    }
-    return ContentService.createTextOutput(body).setMimeType(ContentService.MimeType.TEXT);
+  if (p.k !== undefined) return text_(yemotEntry_(p));
+  var body = e && e.postData && e.postData.contents;
+  if (body && /^\s*\{/.test(body)) {
+    var out;
+    try { out = { ok: true, result: adminApi_(JSON.parse(body)) }; }
+    catch (err) { out = { ok: false, error: err.message }; }
+    return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
   }
-  return HtmlService.createHtmlOutputFromFile('Settings')
-    .setTitle('הדלקת קלוד')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  return HtmlService.createHtmlOutput('<div dir="rtl" style="font-family:Arial;padding:24px;font-size:18px">הדלקת קלוד פועלת. אפשר לסגור את הדף ולחזור לתוכנה.</div>')
+    .setTitle('הדלקת קלוד');
+}
+
+/** להרצה מהעורך אם גוגל לא ביקש לאשר הרשאות: נוגע בכל השירותים כדי שגוגל יבקש את כולם בבת אחת. */
+function authorize() {
+  ScriptApp.getProjectTriggers();
+  UrlFetchApp.getRequest('https://www.call2all.co.il/ym/api/GetSession');
+  return 'ההרשאות אושרו';
+}
+
+function text_(s) { return ContentService.createTextOutput(s).setMimeType(ContentService.MimeType.TEXT); }
+
+function yemotEntry_(p) {
+  var cfg = loadConfig_();
+  if (!safeEq_(p.k, cfg.yemot.key)) return say_('אין גישה') + '&' + hangup_();
+  try { return handleYemot_(p, cfg); }
+  catch (err) { addLog_('טלפון', 'תקלה: ' + err.message, false); return say_('תקלה זמנית') + '&' + hangup_(); }
 }
 
 /* ===================== תזמונים ===================== */
@@ -226,83 +246,40 @@ function ensureTicker_(on) {
   if (!on) has.forEach(function (t) { ScriptApp.deleteTrigger(t); });
 }
 
-/* ===================== API למסך ההגדרות ===================== */
+/* ===================== ממשק הניהול (לתוכנה במחשב) ===================== */
 /*
- * שתי שכבות:
- * 1. קישור ניהול סודי (?a=...). נוצר רק מתוך עורך הסקריפט (showAdminLink), כך שרק בעל הסקריפט מקבל אותו.
- *    בלי הקישור אי אפשר לבחור סיסמה ראשונה, וניסיונות סיסמה לא נספרים (אין נעילה מבחוץ).
- * 2. סיסמה, שנשמרת כגיבוב. אחרי 5 ניסיונות שגויים עם קישור תקין: חסימה ל-15 דקות.
- * cred = { a: מפתח הקישור, pw: סיסמה }
+ * מפתח הניהול: 32 תווים אקראיים שהתוכנה יוצרת ומעלה בקובץ Secrets.gs (קוד המקור של הסקריפט גלוי רק לבעליו).
+ * בלי המפתח אין גישה לשום פעולה, ואין סיסמה שאפשר לנחש או לנעול.
  */
 
-function hash_(s) {
-  return Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, 'claude-wake:' + s, Utilities.Charset.UTF_8));
+function adminKey_() {
+  var k = props_().getProperty('adminKey');
+  if (k) return k;
+  return typeof ADMIN_KEY === 'string' && ADMIN_KEY.length >= 32 ? ADMIN_KEY : '';
 }
 
-function checkAdminKey_(cred) {
-  var key = props_().getProperty('adminKey');
-  if (!key || !cred || !safeEq_(cred.a, key)) throw new Error('NO_ACCESS');
-}
-
-function auth_(cred) {
-  checkAdminKey_(cred);
-  var p = props_();
-  var until = Number(p.getProperty('lockUntil') || 0);
-  if (Date.now() < until) throw new Error('יותר מדי ניסיונות. נסה שוב בעוד כמה דקות');
-  var h = p.getProperty('adminHash');
-  if (!h) throw new Error('NO_PASSWORD');
-  if (!safeEq_(hash_(cred.pw), h)) {
-    var fails = Number(p.getProperty('fails') || 0) + 1;
-    p.setProperty('fails', String(fails));
-    if (fails >= 5) { p.setProperty('lockUntil', String(Date.now() + 15 * 60000)); p.setProperty('fails', '0'); }
-    throw new Error('סיסמה שגויה');
+function adminApi_(req) {
+  var key = adminKey_();
+  if (!key || !safeEq_(req.a, key)) throw new Error('NO_ACCESS');
+  var args = req.args || {};
+  switch (req.op) {
+    case 'ping': return { version: SCRIPT_VERSION, url: ScriptApp.getService().getUrl() || '' };
+    case 'state': return state_();
+    case 'save': return save_(args);
+    case 'fire': return fireKey_(loadConfig_(), String(args.digit || ''), args.source || 'תוכנה');
+    case 'connectYemot': return connectYemot_();
+    case 'rotateYemotKey': { var c = loadConfig_(); c.yemot.key = randomId_(24); saveConfig_(c); return state_(); }
+    case 'clearLog': props_().setProperty('log', '[]'); return true;
+    default: throw new Error('פעולה לא מוכרת: ' + req.op);
   }
-  p.setProperty('fails', '0');
 }
 
-function apiHasPassword(cred) { checkAdminKey_(cred); return !!props_().getProperty('adminHash'); }
-
-function apiSetPassword(cred, newPassword) {
-  checkAdminKey_(cred);
-  if (String(newPassword || '').length < 6) throw new Error('הסיסמה צריכה לפחות 6 תווים');
-  if (props_().getProperty('adminHash')) auth_(cred);
-  props_().setProperty('adminHash', hash_(newPassword));
-  return true;
-}
-
-/* ===== פונקציות להרצה מתוך עורך הסקריפט בלבד (בוחרים בתפריט ולוחצים "הפעלה") ===== */
-
-/** בעל הסקריפט בעורך. בקריאה אנונימית מהאינטרנט אין משתמש פעיל, ולכן זה נכשל. */
-function requireEditor_() {
-  var me = Session.getActiveUser().getEmail();
-  if (!me || me !== Session.getEffectiveUser().getEmail()) throw new Error('להרצה מתוך עורך הסקריפט בלבד');
-}
-
-/** מדפיס ביומן (Execution log) את קישור הניהול. יוצר מפתח בפעם הראשונה. */
-function showAdminLink() {
-  requireEditor_();
-  var p = props_();
-  if (!p.getProperty('adminKey')) p.setProperty('adminKey', randomId_(32));
-  var url = ScriptApp.getService().getUrl();
-  Logger.log(url ? 'קישור הניהול (לשמור במועדפים, לא לשתף): ' + url + '?a=' + p.getProperty('adminKey')
-    : 'קודם צריך לפרסם: Deploy, New deployment, Web app. אחר כך להריץ שוב.');
-}
-
-/** קישור ניהול חדש (הישן מפסיק לעבוד), ואיפוס הסיסמה והנעילה. למקרה שהקישור דלף או שהסיסמה נשכחה. */
-function resetAdminAccess() {
-  requireEditor_();
-  var p = props_();
-  p.setProperty('adminKey', randomId_(32));
-  p.deleteProperty('adminHash'); p.deleteProperty('lockUntil'); p.setProperty('fails', '0');
-  showAdminLink();
-}
-
-/** המצב למסך: בלי טוקנים, רק האם הם שמורים. */
-function apiState(cred) {
-  auth_(cred);
+/** המצב לתוכנה: בלי טוקנים, רק האם הם שמורים. */
+function state_() {
   var cfg = loadConfig_();
   var url = ScriptApp.getService().getUrl() || '';
   return {
+    version: SCRIPT_VERSION,
     connections: cfg.connections.map(function (c) { return { id: c.id, name: c.name, fireUrl: c.fireUrl, hasToken: !!c.token }; }),
     keys: cfg.keys,
     schedules: cfg.schedules,
@@ -312,14 +289,12 @@ function apiState(cred) {
       apiLink: url ? url + '?k=' + cfg.yemot.key : ''
     },
     tickerOn: ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'tick'; }),
-    log: JSON.parse(props_().getProperty('log') || '[]'),
-    webAppUrl: url
+    log: JSON.parse(props_().getProperty('log') || '[]')
   };
 }
 
 /** שמירה. טוקן ריק = משאירים את הקיים. */
-function apiSave(cred, data) {
-  auth_(cred);
+function save_(data) {
   var lock = LockService.getScriptLock(); lock.waitLock(10000);
   try {
     var cfg = loadConfig_();
@@ -327,49 +302,53 @@ function apiSave(cred, data) {
     saveConfig_(cfg);
   } finally { lock.releaseLock(); }
   ensureTicker_(loadConfig_().schedules.some(function (s) { return s.enabled; }));
-  return apiState(cred);
+  return state_();
 }
 
-/** מאמת ומחיל את מה שנשלח מהמסך על ההגדרות. זורק שגיאה בעברית על קלט לא תקין. */
+/** מאמת ומחיל הגדרות. שדה שלא נשלח נשאר כמו שהוא. זורק שגיאה בעברית על קלט לא תקין. */
 function applySettings_(cfg, data) {
-  var oldConn = {}; cfg.connections.forEach(function (c) { oldConn[c.id] = c; });
-  cfg.connections = (data.connections || []).map(function (c) {
-    var url = String(c.fireUrl || '').trim();
-    if (url && !FIRE_URL_RE.test(url)) throw new Error('הכתובת של "' + c.name + '" לא נראית ככתובת הפעלה של רוטינה (https://api.anthropic.com/v1/claude_code/routines/trig_.../fire)');
-    var id = c.id || randomId_(8);
-    var token = String(c.token || '').trim() || (oldConn[id] && oldConn[id].token) || '';
-    return { id: id, name: String(c.name || 'חיבור').slice(0, 40), fireUrl: url, token: token };
-  });
-  var seen = {};
-  cfg.keys = (data.keys || []).map(function (k) {
-    var d = String(k.digit || '');
-    if (!/^[0-9]$/.test(d)) throw new Error('מקש חייב להיות ספרה אחת');
-    if (seen[d]) throw new Error('המקש ' + d + ' מופיע פעמיים');
-    seen[d] = 1;
-    return { digit: d, name: String(k.name || '').slice(0, 40), connectionId: String(k.connectionId || ''), text: String(k.text || '').slice(0, 2000), confirm: String(k.confirm || '').slice(0, 120) };
-  });
-  cfg.schedules = (data.schedules || []).map(function (s) {
-    if (!/^\d{1,2}:\d{2}$/.test(s.time || '')) throw new Error('שעה לא תקינה: ' + s.time);
-    if (!seen[String(s.digit)]) throw new Error('תזמון ' + s.time + ' מפנה למקש שלא קיים');
-    return { id: s.id || randomId_(8), enabled: !!s.enabled, time: s.time, days: (s.days || []).map(Number).filter(function (n) { return n >= 0 && n <= 6; }), digit: String(s.digit) };
-  });
-  var y = data.yemot || {};
-  cfg.yemot.extension = String(y.extension || '').replace(/[^0-9/]/g, '').replace(/^\/+|\/+$/g, '');
-  cfg.yemot.allowedPhones = String(y.allowedPhones || '').split(/[\s,;]+/).map(normPhone_).filter(String);
-  cfg.yemot.greeting = String(y.greeting || '').slice(0, 120);
-  if (y.token) cfg.yemot.token = String(y.token).trim();
-  if (y.clearToken) cfg.yemot.token = '';
-  if (y.pin) {
-    if (!/^\d{4,8}$/.test(y.pin)) throw new Error('קוד כניסה: 4 עד 8 ספרות');
-    cfg.yemot.pin = y.pin;
+  if (data.connections) {
+    var oldConn = {}; cfg.connections.forEach(function (c) { oldConn[c.id] = c; });
+    cfg.connections = data.connections.map(function (c) {
+      var url = String(c.fireUrl || '').trim();
+      if (url && !FIRE_URL_RE.test(url)) throw new Error('הכתובת של "' + c.name + '" לא נראית ככתובת הפעלה של רוטינה (https://api.anthropic.com/v1/claude_code/routines/trig_.../fire)');
+      var id = String(c.id || randomId_(8));
+      var token = String(c.token || '').trim() || (oldConn[id] && oldConn[id].token) || '';
+      return { id: id, name: String(c.name || 'חיבור').slice(0, 40), fireUrl: url, token: token };
+    });
   }
-  if (y.clearPin) cfg.yemot.pin = '';
+  if (data.keys) {
+    var seen = {};
+    cfg.keys = data.keys.map(function (k) {
+      var d = String(k.digit || '');
+      if (!/^[0-9]$/.test(d)) throw new Error('מקש חייב להיות ספרה אחת');
+      if (seen[d]) throw new Error('המקש ' + d + ' מופיע פעמיים');
+      seen[d] = 1;
+      return { digit: d, name: String(k.name || '').slice(0, 40), connectionId: String(k.connectionId || ''), text: String(k.text || '').slice(0, 2000), confirm: String(k.confirm || '').slice(0, 120) };
+    });
+  }
+  if (data.schedules) {
+    var digits = {}; cfg.keys.forEach(function (k) { digits[k.digit] = 1; });
+    cfg.schedules = data.schedules.map(function (s) {
+      if (!/^\d{1,2}:\d{2}$/.test(s.time || '')) throw new Error('שעה לא תקינה: ' + s.time);
+      if (!digits[String(s.digit)]) throw new Error('תזמון ' + s.time + ' מפנה למקש שלא קיים');
+      return { id: String(s.id || randomId_(8)), enabled: !!s.enabled, time: s.time, days: (s.days || []).map(Number).filter(function (n) { return n >= 0 && n <= 6; }), digit: String(s.digit) };
+    });
+  }
+  if (data.yemot) {
+    var y = data.yemot;
+    if (y.extension !== undefined) cfg.yemot.extension = String(y.extension || '').replace(/[^0-9/]/g, '').replace(/^\/+|\/+$/g, '');
+    if (y.allowedPhones !== undefined) cfg.yemot.allowedPhones = String(y.allowedPhones || '').split(/[\s,;]+/).map(normPhone_).filter(String);
+    if (y.greeting !== undefined) cfg.yemot.greeting = String(y.greeting || '').slice(0, 120);
+    if (y.token) cfg.yemot.token = String(y.token).trim();
+    if (y.clearToken) cfg.yemot.token = '';
+    if (y.pin) {
+      if (!/^\d{4,8}$/.test(y.pin)) throw new Error('קוד כניסה: 4 עד 8 ספרות');
+      cfg.yemot.pin = y.pin;
+    }
+    if (y.clearPin) cfg.yemot.pin = '';
+  }
   return cfg;
-}
-
-function apiFireNow(cred, digit) {
-  auth_(cred);
-  return fireKey_(loadConfig_(), digit, 'כפתור');
 }
 
 function yemotCall_(token, method, body) {
@@ -385,24 +364,14 @@ function yemotCall_(token, method, body) {
 }
 
 /** בודק את טוקן ימות ומגדיר את השלוחה כשלוחת API שמפנה לכאן. */
-function apiConnectYemot(cred) {
-  auth_(cred);
+function connectYemot_() {
   var cfg = loadConfig_();
   if (!cfg.yemot.token) throw new Error('חסר טוקן של ימות');
   if (!cfg.yemot.extension) throw new Error('חסר מספר שלוחה');
   var url = ScriptApp.getService().getUrl();
-  if (!url || !/\/exec$/.test(url)) throw new Error('צריך קודם לפרסם את הסקריפט (Deploy, Web app) ולפתוח את המסך מכתובת ה-exec');
+  if (!url) throw new Error('הסקריפט עוד לא פורסם');
   var s = yemotCall_(cfg.yemot.token, 'GetSession', {});
   yemotCall_(cfg.yemot.token, 'UpdateExtension', { path: 'ivr2:' + cfg.yemot.extension, type: 'api', api_link: url + '?k=' + cfg.yemot.key });
   addLog_('ימות', 'שלוחה ' + cfg.yemot.extension + ' חוברה', true);
   return { ok: true, message: 'שלוחה ' + cfg.yemot.extension + ' מחוברת. יחידות במערכת: ' + (s.units == null ? '?' : s.units) };
 }
-
-/** מחליף את המפתח הסודי בכתובת השלוחה (אחרי זה צריך לחבר שוב את השלוחה). */
-function apiRotateYemotKey(cred) {
-  auth_(cred);
-  var cfg = loadConfig_(); cfg.yemot.key = randomId_(24); saveConfig_(cfg);
-  return apiState(cred);
-}
-
-function apiClearLog(cred) { auth_(cred); props_().setProperty('log', '[]'); return true; }
