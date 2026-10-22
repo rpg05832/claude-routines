@@ -1,0 +1,49 @@
+name: הדלקת קלוד
+
+on:
+  # בדיקה כל 10 דקות אם יש תזמון ב-wake.json. GitHub מעכב לפעמים ריצות מתוזמנות בכמה דקות.
+  # בריפו פרטי: להחליף ל-'*/30 * * * *' ולהעלות את windowMinutes ב-wake.json ל-35, כדי לא לחרוג מהדקות החינמיות.
+  schedule:
+    - cron: '*/10 * * * *'
+  # כפתור "Run workflow" (גם מאפליקציית GitHub בנייד)
+  workflow_dispatch:
+    inputs:
+      key:
+        description: 'מקש לשליחה (לפי wake.json)'
+        required: true
+        default: '1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: claude-wake
+  cancel-in-progress: false
+
+jobs:
+  wake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+
+      # מה כבר רץ היום: קובץ מצב קטן שעובר מריצה לריצה
+      - uses: actions/cache/restore@v4
+        with:
+          path: .wake-state.json
+          key: wake-state-${{ github.run_id }}
+          restore-keys: wake-state-
+
+      - name: שליחה לקלוד
+        env:
+          CLAUDE_FIRE_URL: ${{ secrets.CLAUDE_FIRE_URL }}
+          CLAUDE_FIRE_TOKEN: ${{ secrets.CLAUDE_FIRE_TOKEN }}
+          KEY: ${{ github.event.inputs.key }}
+        run: |
+          if [ -n "$KEY" ]; then python3 wake.py --key "$KEY"; else python3 wake.py; fi
+
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: .wake-state.json
+          key: wake-state-${{ github.run_id }}

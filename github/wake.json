@@ -1,0 +1,9 @@
+{
+  "windowMinutes": 20,
+  "keys": [
+    { "digit": "1", "name": "הדלקת קלוד", "text": "בוקר טוב", "connection": "" }
+  ],
+  "schedules": [
+    { "enabled": true, "time": "07:10", "days": [0, 1, 2, 3, 4], "digit": "1" }
+  ]
+}
