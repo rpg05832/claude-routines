@@ -5,6 +5,7 @@ import { mkdirSync, readdirSync, rmSync, copyFileSync, writeFileSync, readFileSy
 import { join } from 'node:path';
 import { CLASP, PROJECT_DIR, SCRIPT_SRC } from './paths.mjs';
 import { log } from './store.mjs';
+import { configGs } from './settings.mjs';
 
 export const API_SETTINGS_URL = 'https://script.google.com/home/usersettings';
 const API_DISABLED_RE = /has not enabled the Apps Script API|Apps Script API has not been used|usersettings/i;
@@ -68,13 +69,14 @@ export async function checkApi() {
   return { ok: false, ...explainClaspError(r.out) };
 }
 
-/** מכין את תיקיית הפרויקט: קבצי הסקריפט + Secrets.gs עם מפתח הניהול. קבצים אחרים נמחקים. */
-export function writeProjectFiles(adminKey, { dir = PROJECT_DIR, src = SCRIPT_SRC } = {}) {
+/** מכין את תיקיית הפרויקט: קבצי הסקריפט, Secrets.gs עם מפתח הניהול ו-Config.gs עם ההגדרות. קבצים אחרים נמחקים. */
+export function writeProjectFiles(adminKey, settings, { dir = PROJECT_DIR, src = SCRIPT_SRC } = {}) {
   mkdirSync(dir, { recursive: true });
   for (const f of readdirSync(dir)) if (f !== '.clasp.json') rmSync(join(dir, f), { recursive: true, force: true });
   copyFileSync(join(src, 'Code.gs'), join(dir, 'Code.gs'));
   copyFileSync(join(src, 'appsscript.json'), join(dir, 'appsscript.json'));
   writeFileSync(join(dir, 'Secrets.gs'), `// נוצר על ידי תוכנת "הדלקת קלוד". מפתח הניהול: לא לשתף.\nvar ADMIN_KEY = '${adminKey}';\n`, 'utf8');
+  writeFileSync(join(dir, 'Config.gs'), configGs(settings), 'utf8');
 }
 
 export function scriptVersionOf(src = SCRIPT_SRC) {
@@ -94,7 +96,7 @@ export const execUrlFor = (deploymentId) => `${EXEC_BASE}/macros/s/${deploymentI
  * יוצר את הסקריפט בגוגל (אם עוד אין), מעלה את הקוד ומפרסם כ-Web app.
  * בפעם הראשונה: deployment חדש. בעדכון: אותו deployment, כך שהכתובת לא משתנה.
  */
-export async function deploy({ local, adminKey, onStep = () => {} }) {
+export async function deploy({ local, adminKey, settings, onStep = () => {} }) {
   const fail = (r) => { const e = explainClaspError(r.out); throw Object.assign(new Error(e.message), { code: e.code, detail: r.out }); };
   let scriptId = local.scriptId;
   const claspJson = join(PROJECT_DIR, '.clasp.json');
@@ -110,15 +112,15 @@ export async function deploy({ local, adminKey, onStep = () => {} }) {
       if (!scriptId) fail({ out: r.out + '\nלא התקבל מזהה סקריפט' });
     }
   }
-  onStep('מעלה את הקוד');
-  writeProjectFiles(adminKey);
+  onStep('מעלה את הקוד וההגדרות');
+  writeProjectFiles(adminKey, settings);
   const p = await runClasp(['push', '--force']);
   if (p.code !== 0) fail(p);
 
   const version = scriptVersionOf();
   let deploymentId = local.deploymentId;
   if (deploymentId) {
-    onStep('מעדכן את הפרסום (הכתובת נשארת)');
+    onStep('מעדכן את הפרסום');
     const u = await runClasp(['update-deployment', deploymentId, '-d', 'הדלקת קלוד ' + version]);
     if (u.code !== 0) fail(u);
   } else {

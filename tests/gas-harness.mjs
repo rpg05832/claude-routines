@@ -7,14 +7,16 @@ const SRC = readFileSync(new URL('../src/Code.gs', import.meta.url), 'utf8');
 export const URL_OK = 'https://api.anthropic.com/v1/claude_code/routines/trig_01ABC/fire';
 export const KEY = 'k'.repeat(32);
 
-export function makeEnv({ now = new Date('2026-10-25T04:12:00Z'), fireCode = 200, adminKey = KEY, execUrl = 'https://script.google.com/macros/s/ABC/exec', fetchHook } = {}) {
+export function makeEnv({ now = new Date('2026-10-25T04:12:00Z'), fireCode = 200, adminKey = KEY, execUrl = 'https://script.google.com/macros/s/ABC/exec', fetchHook, config } = {}) {
   const store = {}, cache = {}, triggers = [], fetches = [];
   const tzParts = (d) => Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', weekday: 'short',
   }).formatToParts(d).map(p => [p.type, p.value]));
   const ctx = {
     console,
+    Logger: { log() {} },
     ADMIN_KEY: adminKey,
+    ...(config ? { CONFIG: config } : {}),
     PropertiesService: { getScriptProperties: () => ({ getProperty: k => (k in store ? store[k] : null), setProperty: (k, v) => { store[k] = String(v); }, deleteProperty: k => { delete store[k]; } }) },
     CacheService: { getScriptCache: () => ({ get: k => cache[k] ?? null, put: (k, v) => { cache[k] = v; } }) },
     LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
@@ -28,6 +30,7 @@ export function makeEnv({ now = new Date('2026-10-25T04:12:00Z'), fireCode = 200
       },
     },
     UrlFetchApp: {
+      getRequest: (url) => ({ url }),
       fetch(url, o) {
         fetches.push({ url, o });
         if (fetchHook) { const h = fetchHook(url, o); if (h) return h; }

@@ -19,6 +19,7 @@ export async function callRemote(execUrl, adminKey, op, args = {}, { fetchImpl =
   } catch (e) {
     throw Object.assign(new Error(e.name === 'AbortError' ? 'גוגל לא ענה בזמן' : 'אין חיבור לגוגל: ' + e.message), { code: 'NETWORK' });
   } finally { clearTimeout(t); }
+  if (res.status === 418 || /netfree/i.test(text)) throw Object.assign(new Error('הכתובת של הסקריפט חסומה ברשת הזאת (נטפרי)'), { code: 'BLOCKED' });
   let j;
   try { j = JSON.parse(text); }
   catch {

@@ -1,9 +1,11 @@
 // נתיבים: תיקיית התוכנה (בהתקנה: %LOCALAPPDATA%\ClaudeWake\app) ותיקיית הנתונים (%APPDATA%\ClaudeWake).
-import { join, dirname } from 'node:path';
+import { join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 
-export const APP_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
+// בפיתוח הקובץ הזה ב-app/lib; בהתקנה הכל ארוז לקובץ אחד ב-app.
+const here = dirname(fileURLToPath(import.meta.url));
+export const APP_DIR = basename(here) === 'lib' ? dirname(here) : here;
 export const DATA_DIR = process.env.CLAUDE_WAKE_DATA || join(process.env.APPDATA || join(homedir(), '.config'), 'ClaudeWake');
 export const CONFIG_FILE = join(DATA_DIR, 'config.json');
 export const UI_FILE = join(DATA_DIR, 'ui.json');

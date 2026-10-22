@@ -71,3 +71,9 @@ textarea { min-height: 70px; resize: vertical; }
 .log .t { color: var(--muted); white-space: nowrap; }
 .ok-t { color: var(--ok); } .bad-t { color: var(--bad); }
 .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 12px 18px; border-radius: 12px; max-width: 90vw; display: none; z-index: 9; }
+.modes { display: grid; gap: 10px; }
+button.mode { text-align: right; display: flex; flex-direction: column; gap: 4px; padding: 16px; }
+button.mode b { font-size: 19px; }
+button.mode .tag { font-size: 13px; color: var(--accent); }
+button.mode.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
+h3 { font-size: 16px; margin: 14px 0 6px; }

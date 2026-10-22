@@ -12,7 +12,7 @@ function Step($t) { Write-Host "== $t" }
 
 Step 'clean'
 if (Test-Path $out) { Remove-Item $out -Recurse -Force }
-foreach ($d in 'app\lib', 'app\web', 'app\script', 'app\clasp', 'runtime') { New-Item -ItemType Directory -Force -Path (Join-Path $app $d) | Out-Null }
+foreach ($d in 'app\web', 'app\script', 'app\clasp', 'app\github', 'runtime') { New-Item -ItemType Directory -Force -Path (Join-Path $app $d) | Out-Null }
 
 Step 'bundle clasp (esbuild)'
 if (-not (Test-Path (Join-Path $deps 'node_modules\@google\clasp'))) {
@@ -32,9 +32,20 @@ try {
   if ($LASTEXITCODE) { throw 'esbuild failed' }
 } finally { Pop-Location }
 
+Step 'bundle app (esbuild): server + lib + tweetnacl + blakejs in one file'
+Push-Location (Join-Path $root 'app')
+try {
+  if (-not (Test-Path 'node_modules\tweetnacl')) { & npm install --no-audit --no-fund; if ($LASTEXITCODE) { throw 'npm install (app) failed' } }
+} finally { Pop-Location }
+Push-Location $deps
+try {
+  & npx --no-install esbuild (Join-Path $root 'app\server.mjs') --bundle --platform=node --format=esm --target=node22 `
+      "--outfile=$app\app\server.mjs" "--banner:js=$banner" --log-level=warning
+  if ($LASTEXITCODE) { throw 'esbuild (app) failed' }
+} finally { Pop-Location }
+
 Step 'app files'
-Copy-Item (Join-Path $root 'app\server.mjs') (Join-Path $app 'app')
-Copy-Item (Join-Path $root 'app\lib\*') (Join-Path $app 'app\lib')
+Copy-Item (Join-Path $root 'github\wake.py') (Join-Path $app 'app\github')
 Copy-Item (Join-Path $root 'app\web\*') (Join-Path $app 'app\web')
 Copy-Item (Join-Path $root 'src\Code.gs'), (Join-Path $root 'src\appsscript.json') (Join-Path $app 'app\script')
 Copy-Item (Join-Path $inst 'launcher.vbs') $app
@@ -50,6 +61,22 @@ $node = Join-Path $app 'runtime\node.exe'
 & $node --check (Join-Path $app 'app\server.mjs'); if ($LASTEXITCODE) { throw 'server.mjs invalid' }
 $help = & $node --no-warnings --use-system-ca (Join-Path $app 'app\clasp\clasp.mjs') --help 2>&1 | Out-String
 if ($help -notmatch 'create-deployment') { throw "bundled clasp does not run:`n$help" }
+# the bundled app starts, serves the UI and answers the API (with an isolated data folder)
+$smokeData = Join-Path ([IO.Path]::GetTempPath()) 'claude-wake-smoke'
+if ([IO.Directory]::Exists($smokeData)) { [IO.Directory]::Delete($smokeData, $true) }
+$env:CLAUDE_WAKE_DATA = $smokeData; $env:CLAUDE_WAKE_DEV_PORT = '8787'; $env:CLAUDE_WAKE_DEV_TOKEN = 'smoke'; $env:CLAUDE_WAKE_NO_EXTERNAL = '1'
+$proc = Start-Process -FilePath $node -ArgumentList '--no-warnings', '--use-system-ca', "`"$app\app\server.mjs`"", '--no-open' -PassThru -WindowStyle Hidden
+try {
+  Start-Sleep -Seconds 3
+  $st = Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:8787/api/status' -Headers @{ 'x-token' = 'smoke' }
+  if (-not $st.ok -or $st.result.appVersion -ne $Version) { throw "app smoke test failed: $($st | ConvertTo-Json -Compress)" }
+  $page = Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:8787/?t=smoke'
+  if ($page.Content -notmatch 'data-mode="claude"') { throw 'UI not served' }
+  Write-Host "app smoke test ok (version $($st.result.appVersion), script $($st.result.google.bundledVersion))"
+} finally {
+  Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+  Remove-Item Env:CLAUDE_WAKE_DATA, Env:CLAUDE_WAKE_DEV_PORT, Env:CLAUDE_WAKE_DEV_TOKEN, Env:CLAUDE_WAKE_NO_EXTERNAL -ErrorAction SilentlyContinue
+}
 
 Step 'compile installer'
 $iss = Join-Path $inst 'claude-wake.iss'

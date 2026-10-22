@@ -11,6 +11,7 @@ process.env.CLAUDE_WAKE_SCRIPT_SRC = fileURLToPath(new URL('../src', import.meta
 const google = await import('../app/lib/google.mjs');
 const { callRemote } = await import('../app/lib/remote.mjs');
 const store = await import('../app/lib/store.mjs');
+const settingsMod = await import('../app/lib/settings.mjs');
 
 test('פענוח פלט של clasp', () => {
   assert.equal(google.deploymentIdFrom('Deployed AKfycbxABCDEFGHIJKLMNOPQRSTUVWXYZ_-12 @3'), 'AKfycbxABCDEFGHIJKLMNOPQRSTUVWXYZ_-12');
@@ -25,10 +26,11 @@ test('קבצי הסקריפט שעולים לגוגל: הקוד, המניפסט 
   const dir = mkdtempSync(join(tmpdir(), 'cw-proj-'));
   writeFileSync(join(dir, 'Code.js'), '// ברירת המחדל של גוגל');
   writeFileSync(join(dir, '.clasp.json'), '{"scriptId":"x"}');
-  google.writeProjectFiles('a'.repeat(32), { dir });
-  assert.deepEqual(readdirSync(dir).sort(), ['.clasp.json', 'Code.gs', 'Secrets.gs', 'appsscript.json']);
+  google.writeProjectFiles('a'.repeat(32), settingsMod.applySettings(settingsMod.defaultSettings(), {}), { dir });
+  assert.deepEqual(readdirSync(dir).sort(), ['.clasp.json', 'Code.gs', 'Config.gs', 'Secrets.gs', 'appsscript.json']);
   assert.match(readFileSync(join(dir, 'Secrets.gs'), 'utf8'), /var ADMIN_KEY = 'a{32}';/);
-  assert.equal(google.scriptVersionOf(), '1.0.0');
+  assert.equal(google.scriptVersionOf(), '1.1.0');
+  assert.match(readFileSync(join(dir, 'Config.gs'), 'utf8'), /var CONFIG = /);
 });
 
 test('מפתח ניהול נוצר פעם אחת ונשמר', () => {
@@ -49,4 +51,18 @@ test('תקשורת עם הסקריפט: הצלחה, הרשאות חסרות וש
   await assert.rejects(callRemote('https://x/exec', 'k', 'save', {}, { fetchImpl: async () => res(200, '{"ok":false,"error":"שעה לא תקינה"}') }), /שעה לא תקינה/);
   await assert.rejects(callRemote('https://x/exec', 'k', 'ping', {}, { fetchImpl: async () => { throw new Error('getaddrinfo ENOTFOUND'); } }), { code: 'NETWORK' });
   await assert.rejects(callRemote('', 'k', 'ping'), { code: 'NOT_DEPLOYED' });
+});
+
+test('חסימה של נטפרי מזוהה', async () => {
+  await assert.rejects(callRemote('https://x/exec', 'k', 'ping', {}, { fetchImpl: async () => res(418, '<html>blockByNetFree</html>') }), { code: 'BLOCKED' });
+});
+
+test('מצב מקומי: מעבר מגרסה 1.0 ושמירה חלקית', () => {
+  const f = join(process.env.CLAUDE_WAKE_DATA, 'old.json');
+  writeFileSync(f, JSON.stringify({ scriptId: 'S1', execUrl: 'https://x/exec', adminKey: 'b'.repeat(32), wizardDone: true }));
+  const l = store.loadLocal(f);
+  assert.equal(l.mode, 'google'); assert.equal(l.google.scriptId, 'S1'); assert.equal(l.google.adminKey, 'b'.repeat(32));
+  store.saveLocal({ claude: { envId: 'env1' } }, f);
+  const l2 = store.loadLocal(f);
+  assert.equal(l2.claude.envId, 'env1'); assert.deepEqual(l2.claude.routines, {}, 'שדות אחרים נשמרים');
 });

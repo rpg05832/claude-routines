@@ -1,0 +1,9 @@
+{
+  "name": "claude-wake-app",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "tweetnacl": "1.0.3",
+    "blakejs": "1.2.1"
+  }
+}

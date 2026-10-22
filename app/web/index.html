@@ -10,83 +10,87 @@
 <body>
 <div class="wrap">
 
-  <!-- ===== אשף ===== -->
+  <!-- ======================= אשף ======================= -->
   <section id="wizard" class="hidden">
-    <header class="top">
-      <h1>הדלקת קלוד</h1>
-      <span class="muted" id="wzCount"></span>
-    </header>
+    <header class="top"><h1>הדלקת קלוד</h1><span class="muted" id="wzCount"></span></header>
     <ol class="progress" id="wzProgress"></ol>
 
     <div class="card step" data-step="welcome">
       <h2>ברוכים הבאים</h2>
-      <p>התוכנה מגדירה פעם אחת מערכת קטנה בענן של גוגל, ששולחת הודעה קבועה ל-Claude Code:</p>
-      <ul class="bul">
-        <li>בשעות שתבחר, כדי שחלון השימוש של 5 השעות יתחיל מראש</li>
-        <li>מהטלפון הכשר: מתקשרים לשלוחה בימות המשיח ומקישים 1</li>
-      </ul>
+      <p>התוכנה מגדירה פעם אחת מערכת קטנה בענן ששולחת הודעה קבועה ל-Claude Code בשעות שתבחר, כדי שחלון השימוש של 5 השעות יתחיל מראש. במסלול גוגל אפשר גם להפעיל מהטלפון הכשר דרך ימות המשיח.</p>
       <p>אחרי ההגדרה <b>המחשב לא צריך להיות דלוק</b>. התוכנה הזאת נחוצה רק כדי לשנות הגדרות.</p>
-      <p class="muted">צריך: חשבון גוגל, מנוי Claude (Pro או Max), ולטלפון גם טוקן API של ימות המשיח.</p>
       <div class="actions"><button class="primary" data-next>מתחילים</button></div>
     </div>
 
-    <div class="card step" data-step="google">
-      <h2>חיבור לחשבון גוגל</h2>
-      <p>המערכת רצה ב-Google Apps Script בחשבון שלך, בחינם. לוחצים על הכפתור, בוחרים את החשבון בדפדפן ומאשרים.</p>
-      <p class="muted">גוגל יבקש לאשר גישה ל-"clasp". זה הכלי הרשמי של גוגל להעלאת סקריפטים, והתוכנה משתמשת בו.</p>
-      <div class="status-line" id="gStatus"></div>
-      <div class="actions">
-        <button class="primary" id="gLogin">התחברות לגוגל</button>
-        <button data-next id="gNext" disabled>המשך</button>
+    <div class="card step" data-step="mode">
+      <h2>איפה המערכת תרוץ?</h2>
+      <div class="modes">
+        <button class="mode" data-mode="google">
+          <b>גוגל</b><span class="tag">מומלץ, כולל טלפון</span>
+          <span>תזמונים מדויקים לפי שעון ישראל, והפעלה מהטלפון הכשר דרך ימות. צריך חשבון גוגל. עובד גם בנטפרי.</span>
+          <span class="muted">פעם אחת: יוצרים באתר claude.ai רוטינה ומעתיקים טוקן.</span>
+        </button>
+        <button class="mode" data-mode="claude">
+          <b>claude.ai בלבד</b><span class="tag">הכי פשוט, בלי טלפון</span>
+          <span>התזמון נשמר ברוטינות של claude.ai עצמו. בלי גוגל ובלי GitHub. התוכנה מנהלת את הרוטינות דרך Claude Code שבמחשב.</span>
+          <span class="muted">שעון: claude.ai שומר שעות ב-UTC. אחרי מעבר לשעון חורף או קיץ צריך לפתוח את התוכנה פעם אחת כדי לתקן.</span>
+        </button>
+        <button class="mode" data-mode="github">
+          <b>GitHub</b><span class="tag">בלי טלפון</span>
+          <span>התזמון רץ ב-GitHub Actions בריפו שלך. צריך חשבון GitHub וטוקן.</span>
+          <span class="muted">GitHub מאחר לפעמים בכמה דקות.</span>
+        </button>
       </div>
     </div>
 
-    <div class="card step" data-step="api">
+    <!-- ----- גוגל ----- -->
+    <div class="card step" data-step="g-login">
+      <h2>חיבור לחשבון גוגל</h2>
+      <p>המערכת רצה ב-Google Apps Script בחשבון שלך, בחינם. לוחצים, בוחרים חשבון בדפדפן ומאשרים.</p>
+      <p class="muted">גוגל יבקש לאשר גישה ל-"clasp": הכלי הרשמי של גוגל להעלאת סקריפטים.</p>
+      <div class="status-line" id="gStatus"></div>
+      <div class="actions"><button class="primary" id="gLogin">התחברות לגוגל</button><button data-next id="gNext" disabled>המשך</button></div>
+    </div>
+
+    <div class="card step" data-step="g-api">
       <h2>הפעלת Apps Script API</h2>
       <ol class="bul">
-        <li>לוחצים על "פתיחת ההגדרות". נפתח דף של גוגל.</li>
-        <li>ב-"Google Apps Script API" מעבירים את המתג למצב <b>מופעל</b> (On).</li>
+        <li>לוחצים "פתיחת ההגדרות". נפתח דף של גוגל.</li>
+        <li>ב-"Google Apps Script API" מעבירים את המתג ל<b>מופעל</b> (On).</li>
         <li>חוזרים לכאן ולוחצים "בדיקה".</li>
       </ol>
       <div class="status-line" id="apiStatus"></div>
-      <div class="actions">
-        <button id="apiOpen">פתיחת ההגדרות</button>
-        <button class="primary" id="apiCheck">בדיקה</button>
-        <button data-next id="apiNext" disabled>המשך</button>
-      </div>
+      <div class="actions"><button id="apiOpen">פתיחת ההגדרות</button><button class="primary" id="apiCheck">בדיקה</button><button data-next id="apiNext" disabled>המשך</button></div>
     </div>
 
-    <div class="card step" data-step="deploy">
+    <div class="card step" data-step="g-deploy">
       <h2>יצירת המערכת בענן</h2>
-      <p>התוכנה יוצרת סקריפט בחשבון הגוגל שלך, מעלה אליו את הקוד ומפרסמת אותו. זה לוקח כחצי דקה.</p>
+      <p>התוכנה יוצרת סקריפט בחשבון הגוגל שלך, מעלה אליו את הקוד ומפרסמת אותו. כחצי דקה.</p>
       <ul class="steps-log" id="depLog"></ul>
-      <div id="authBox" class="note hidden">
-        <p><b>אישור הרשאות (פעם אחת):</b> לוחצים "אישור הרשאות". בדף שנפתח:</p>
-        <ol class="bul">
-          <li>"Review permissions" (או "בדיקת הרשאות"), ובוחרים את החשבון</li>
-          <li>אם מופיע "Google hasn't verified this app": לוחצים <b>Advanced</b> ואז <b>Go to הדלקת קלוד (unsafe)</b>. זה הסקריפט שלך, לכן גוגל לא אימת אותו.</li>
-          <li><b>Allow</b></li>
-        </ol>
-        <p class="muted">התוכנה בודקת לבד כל כמה שניות, וממשיכה כשההרשאות מאושרות.</p>
-        <p class="muted">אם במקום זה מופיע "הדלקת קלוד פועלת", אפשר לסגור את הדף: ההרשאות כבר מאושרות.</p>
-        <div class="actions"><button class="primary" id="authOpen">אישור הרשאות</button><button id="authEditor" class="link">לא עובד? פתיחת הסקריפט בגוגל</button></div>
-        <p id="authEditorHelp" class="muted hidden">בעורך שנפתח: בתפריט הפונקציות למעלה בוחרים <b>authorize</b>, לוחצים <b>Run</b> (הפעלה) ומאשרים באותה דרך.</p>
-      </div>
       <div class="status-line" id="depStatus"></div>
-      <div class="actions">
-        <button class="primary" id="depRun">יצירה ופרסום</button>
-        <button data-next id="depNext" disabled>המשך</button>
-      </div>
+      <div class="actions"><button class="primary" id="depRun">יצירה ופרסום</button><button data-next id="depNext" disabled>המשך</button></div>
     </div>
 
-    <div class="card step" data-step="claude">
-      <h2>חיבור ל-Claude</h2>
+    <div class="card step" data-step="g-auth">
+      <h2>אישור הרשאות (פעם אחת)</h2>
       <ol class="bul">
-        <li>לוחצים "פתיחת claude.ai", ושם <b>New task</b>. אם מופיע תפריט: <b>Set up manually</b>.</li>
-        <li>שם: <code>הדלקת קלוד</code>. מודל: <b>Haiku</b>.</li>
-        <li>בתיבת ההנחיה מדביקים את ההנחיה (כפתור "העתקת ההנחיה" כאן).</li>
+        <li>לוחצים "פתיחת הסקריפט". נפתח עורך הסקריפט של גוגל.</li>
+        <li>בשורת הכלים למעלה, ברשימת הפונקציות, בוחרים <b>authorize</b>, ולוחצים <b>Run</b> (הפעלה).</li>
+        <li>"Review permissions", בוחרים חשבון. אם מופיע "Google hasn't verified this app": <b>Advanced</b>, ואז <b>Go to הדלקת קלוד (unsafe)</b>. זה הסקריפט שלך, לכן גוגל לא אימת אותו.</li>
+        <li><b>Allow</b>. בתחתית העורך יופיע "ההרשאות אושרו".</li>
+      </ol>
+      <div class="status-line" id="authStatus"></div>
+      <div class="actions"><button id="authEditor">פתיחת הסקריפט</button><button class="primary" id="authDone">סיימתי, ראיתי "ההרשאות אושרו"</button></div>
+    </div>
+
+    <!-- ----- חיבור לרוטינה (גוגל ו-GitHub) ----- -->
+    <div class="card step" data-step="conn">
+      <h2>חיבור לרוטינה ב-Claude</h2>
+      <ol class="bul">
+        <li>"פתיחת claude.ai", ושם <b>New task</b>. אם מופיע תפריט: <b>Set up manually</b>.</li>
+        <li>שם: <code>הדלקת קלוד</code>. מודל: <b>Haiku</b>. בתיבת ההנחיה מדביקים את ההנחיה ("העתקת ההנחיה").</li>
         <li>ב-<b>Trigger</b> בוחרים <b>API</b>. ב-Advanced settings, בלשונית Connectors, מסירים את כל החיבורים.</li>
-        <li><b>Create</b>. מיד מופיע טוקן, <b>פעם אחת בלבד</b>: מעתיקים אותו לכאן. מעתיקים גם את <b>Fire URL</b>.</li>
+        <li><b>Create</b>. הטוקן מוצג <b>פעם אחת בלבד</b>: מעתיקים אותו לכאן, וגם את <b>Fire URL</b>.</li>
       </ol>
       <div class="actions"><button id="clOpen">פתיחת claude.ai</button><button id="clCopy">העתקת ההנחיה</button></div>
       <label for="clUrl">Fire URL</label>
@@ -94,27 +98,71 @@
       <label for="clToken">טוקן</label>
       <input id="clToken" dir="ltr" type="password" autocomplete="off" placeholder="sk-ant-...">
       <div class="status-line" id="clStatus"></div>
-      <div class="actions">
-        <button class="primary" id="clSave">שמירה ושליחת בדיקה</button>
-        <button data-next id="clNext" disabled>המשך</button>
-      </div>
+      <div class="actions"><button class="primary" id="clSave">שמירה ושליחת בדיקה</button><button data-next id="clNext" disabled>המשך</button></div>
     </div>
 
+    <!-- ----- claude.ai ----- -->
+    <div class="card step" data-step="c-code">
+      <h2>Claude Code במחשב</h2>
+      <p>התוכנה מנהלת את הרוטינות שלך ב-claude.ai דרך Claude Code הרשמי, עם ההתחברות שלך. כל פעולה (שמירה, שליחה) עולה מעט מהמכסה ולוקחת כ-10 שניות.</p>
+      <div class="status-line" id="ccStatus"></div>
+      <div class="actions">
+        <button class="primary hidden" id="ccInstall">התקנה של Claude Code</button>
+        <button class="primary hidden" id="ccLogin">התחברות ל-Claude</button>
+        <button id="ccCheck">בדיקה</button>
+        <button data-next id="ccNext" disabled>המשך</button>
+      </div>
+      <p class="muted hidden" id="ccLoginHelp">נפתח חלון שחור. מתחברים בדפדפן שנפתח, ואם מבקשים, מדביקים את הקוד בחלון. אחר כך סוגרים אותו ולוחצים כאן "בדיקה".</p>
+    </div>
+
+    <div class="card step" data-step="c-env">
+      <h2>החשבון ב-claude.ai</h2>
+      <p>התוכנה מחפשת את סביבת הענן של החשבון שלך מתוך רוטינה קיימת.</p>
+      <div class="status-line" id="envStatus"></div>
+      <div id="envHelp" class="note hidden">
+        <p>עוד אין רוטינות בחשבון. יוצרים אחת, פעם אחת:</p>
+        <ol class="bul"><li>"פתיחת claude.ai", <b>New task</b>, <b>Set up manually</b>.</li><li>שם כלשהו (למשל "בדיקה"), הנחיה כלשהי, ו-<b>Create</b>. אפשר לכבות אותה אחר כך.</li><li>חוזרים ולוחצים "חיפוש שוב".</li></ol>
+        <div class="actions"><button id="envOpen">פתיחת claude.ai</button></div>
+      </div>
+      <div class="actions"><button class="primary" id="envFind">חיפוש שוב</button><button data-next id="envNext" disabled>המשך</button></div>
+    </div>
+
+    <!-- ----- GitHub ----- -->
+    <div class="card step" data-step="gh">
+      <h2>חיבור ל-GitHub</h2>
+      <ol class="bul">
+        <li>"יצירת טוקן" פותח את GitHub. <b>Repository access</b>: All repositories (או רק הריפו של הדלקת קלוד, אם כבר קיים).</li>
+        <li><b>Permissions</b>: Contents, Workflows, Secrets, Actions: כולם <b>Read and write</b>. כדי שהתוכנה תיצור את הריפו בעצמה, גם Administration.</li>
+        <li><b>Generate token</b>, מעתיקים ומדביקים כאן.</li>
+      </ol>
+      <div class="actions"><button id="ghTokenPage">יצירת טוקן</button></div>
+      <label for="ghToken">טוקן GitHub</label>
+      <input id="ghToken" type="password" dir="ltr" autocomplete="off" placeholder="github_pat_...">
+      <div class="row">
+        <div><label for="ghRepo">שם הריפו</label><input id="ghRepo" dir="ltr" value="claude-wake"></div>
+        <div><label class="inline"><input type="checkbox" id="ghPrivate"> ריפו פרטי</label><span class="muted">פרטי: בדיקה כל 30 דקות (מגבלת הדקות החינמיות). ציבורי: כל 10 דקות; ההודעות והשעות גלויות, הטוקנים לא.</span></div>
+      </div>
+      <div class="status-line" id="ghStatus"></div>
+      <div class="actions"><button class="primary" id="ghConnect">חיבור</button><button data-next id="ghNext" disabled>המשך</button></div>
+    </div>
+
+    <!-- ----- משותף ----- -->
     <div class="card step" data-step="schedule">
-      <h2>מתי להדליק?</h2>
-      <p>בשעה הזאת תישלח הודעה לקלוד, וחלון השימוש יתחיל. אפשר להוסיף עוד שעות אחר כך בהגדרות.</p>
+      <h2>מתי להדליק, ומה לשלוח?</h2>
+      <label for="wzText">ההודעה שנשלחת לקלוד</label>
+      <input id="wzText" value="בוקר טוב">
       <div class="row">
         <div><label for="wzTime">שעה</label><input id="wzTime" type="time" value="07:10"></div>
         <div><label>ימים</label><div class="days" id="wzDays"></div></div>
       </div>
-      <p class="muted">טיפ: שעה עגולה (07:00) מתחילה לפעמים באיחור של כמה דקות. עדיף כמה דקות אחרי.</p>
+      <p class="muted">טיפ: שעה עגולה (07:00) מתחילה לפעמים באיחור של כמה דקות. עדיף כמה דקות אחרי. אפשר להוסיף עוד שעות אחר כך בהגדרות.</p>
       <div class="status-line" id="schStatus"></div>
       <div class="actions"><button class="primary" id="schSave">שמירה</button><button data-next class="link">דילוג</button></div>
     </div>
 
     <div class="card step" data-step="yemot">
       <h2>טלפון: ימות המשיח (לא חובה)</h2>
-      <p>מתקשרים לשלוחה, שומעים "להדלקת קלוד הקישו 1", מקישים, וההודעה נשלחת.</p>
+      <p>מתקשרים לשלוחה, שומעים "להדלקת קלוד הקישו 1", מקישים, וההודעה נשלחת. התוכנה מגדירה את השלוחה לבד.</p>
       <label for="wyToken">טוקן API של ימות</label>
       <input id="wyToken" type="password" dir="ltr" autocomplete="off">
       <div class="row">
@@ -137,54 +185,51 @@
     <div class="actions back-row"><button class="link" id="wzBack">חזרה</button></div>
   </section>
 
-  <!-- ===== לוח בקרה ===== -->
+  <!-- ======================= לוח בקרה ======================= -->
   <section id="main" class="hidden">
-    <header class="top">
-      <h1>הדלקת קלוד</h1>
-      <button class="icon" id="gear" title="הגדרות" aria-label="הגדרות">⚙</button>
-    </header>
+    <header class="top"><h1>הדלקת קלוד</h1><button class="icon" id="gear" title="הגדרות" aria-label="הגדרות">⚙</button></header>
     <div class="card"><div class="chips" id="chips"></div><p class="muted" id="cloudNote"></p></div>
-    <div class="card note hidden" id="updateCard">
-      <b>יש גרסה חדשה של הסקריפט.</b> <button class="primary" id="updateNow">עדכון הסקריפט בענן</button>
-    </div>
+    <div class="card note hidden" id="dstCard"><b>השעון התחלף.</b> שעות הרוטינות ב-claude.ai צריכות עדכון. <button class="primary" id="dstFix">עדכון עכשיו</button></div>
+    <div class="card note hidden" id="updateCard"><b>יש גרסה חדשה של הסקריפט.</b> <button class="primary" id="updateNow">עדכון הסקריפט בגוגל</button></div>
     <div class="card"><h2>שליחה עכשיו</h2><div id="bigButtons"></div></div>
     <div class="card"><h2>תזמונים</h2><div id="schedSummary" class="muted"></div></div>
     <div class="card">
-      <div class="item-head"><h2>מה קרה לאחרונה</h2><span><button class="link" id="refresh">רענון</button><button class="link" id="clearLog">ניקוי</button></span></div>
+      <div class="item-head"><h2>מה קרה לאחרונה</h2><span><button class="link" id="cloudLog">יומן מהענן</button><button class="link" id="clearLog">ניקוי</button></span></div>
       <div class="log" id="log"></div>
+      <div id="cloudLogBox" class="hidden"><h3>מהענן</h3><div class="log" id="cloudLogList"></div></div>
     </div>
   </section>
 
-  <!-- ===== הגדרות ===== -->
+  <!-- ======================= הגדרות ======================= -->
   <section id="settings" class="hidden">
     <header class="top"><h1>הגדרות</h1><button id="back">חזרה</button></header>
     <div class="tabs" id="tabs">
-      <button data-tab="t-claude" class="on">חיבור לקלוד</button>
-      <button data-tab="t-keys">מקשים והודעות</button>
+      <button data-tab="t-keys" class="on">הודעות ומקשים</button>
       <button data-tab="t-sched">תזמונים</button>
-      <button data-tab="t-yemot">ימות המשיח</button>
+      <button data-tab="t-conn" data-modes="google github">חיבור לקלוד</button>
+      <button data-tab="t-yemot" data-modes="google">ימות המשיח</button>
       <button data-tab="t-adv">מתקדם</button>
     </div>
 
-    <div id="t-claude" class="tab card">
-      <h2>חיבורים לקלוד</h2>
-      <p class="muted">כל חיבור הוא רוטינה ב-claude.ai/code/routines עם טריגר API. הטוקן נשמר בסקריפט שבגוגל ולא מוצג שוב.</p>
-      <div id="conns"></div>
-      <div class="actions"><button id="addConn">+ חיבור</button><button class="link" data-open="routines">פתיחת claude.ai</button></div>
-    </div>
-
-    <div id="t-keys" class="tab card hidden">
-      <h2>מקשים והודעות</h2>
-      <p class="muted">כל מקש שולח הודעה קבועה לחיבור שבחרת. אותם מקשים משמשים לטלפון, לכפתורים ולתזמונים.</p>
+    <div id="t-keys" class="tab card">
+      <h2>הודעות ומקשים</h2>
+      <p class="muted" id="keysHelp"></p>
       <div id="keys"></div>
       <button id="addKey">+ מקש</button>
     </div>
 
     <div id="t-sched" class="tab card hidden">
       <h2>תזמונים</h2>
-      <p class="muted">לפי שעון ישראל, כולל מעבר לשעון חורף. כל תזמון רץ פעם אחת ביום, ואם התעכב הוא עדיין ירוץ עד 20 דקות אחרי.</p>
+      <p class="muted">לפי שעון ישראל. כל תזמון רץ פעם אחת ביום.</p>
       <div id="scheds"></div>
       <button id="addSched">+ תזמון</button>
+    </div>
+
+    <div id="t-conn" class="tab card hidden">
+      <h2>חיבורים לקלוד</h2>
+      <p class="muted">כל חיבור הוא רוטינה ב-claude.ai עם טריגר API. הטוקן לא מוצג שוב.</p>
+      <div id="conns"></div>
+      <div class="actions"><button id="addConn">+ חיבור</button><button class="link" data-open="routines">פתיחת claude.ai</button></div>
     </div>
 
     <div id="t-yemot" class="tab card hidden">
@@ -202,24 +247,16 @@
         <div><label for="yPin">קוד כניסה (ריק = בלי שינוי)</label><input id="yPin" type="password" inputmode="numeric" autocomplete="off"></div>
         <div><label class="inline"><input type="checkbox" id="yClearPin"> בלי קוד כניסה</label></div>
       </div>
-      <div class="actions"><button class="primary" id="connectYemot">שמירה וחיבור השלוחה</button></div>
-      <p class="muted">אחרי שינוי מקשים או משפט הפתיחה אין צורך לחבר שוב. חיבור מחדש נחוץ רק אחרי החלפת שלוחה או מפתח.</p>
-      <p><button class="link" id="rotateKey">להחליף את המפתח הסודי בכתובת השלוחה</button></p>
+      <p class="muted">בשמירה התוכנה מעדכנת את הסקריפט ומחברת את השלוחה לבד.</p>
     </div>
 
     <div id="t-adv" class="tab card hidden">
       <h2>מתקדם</h2>
       <div id="advInfo" class="muted"></div>
-      <div class="actions col">
-        <button id="advRedeploy">העלאה מחדש של הסקריפט לגוגל</button>
-        <button id="advEditor">פתיחת הסקריפט בגוגל</button>
-        <button id="advUsage">פתיחת עמוד השימוש ב-claude.ai</button>
-        <button id="advWizard">הרצת אשף ההגדרה מחדש</button>
-        <button id="advLogout" class="link">התנתקות מגוגל במחשב הזה</button>
-      </div>
+      <div class="actions col" id="advButtons"></div>
     </div>
 
-    <div class="actions"><button class="primary wide" id="save">שמירה</button></div>
+    <div class="actions" id="saveRow"><button class="primary wide" id="save">שמירה</button></div>
   </section>
 </div>
 <div class="toast" id="toast" role="status"></div>

@@ -5,3 +5,4 @@ installer/build/
 installer/output/
 installer/.deps/
 installer/icon.ico
+app/node_modules/
