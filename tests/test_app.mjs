@@ -29,7 +29,7 @@ test('קבצי הסקריפט שעולים לגוגל: הקוד, המניפסט 
   google.writeProjectFiles('a'.repeat(32), settingsMod.applySettings(settingsMod.defaultSettings(), {}), { dir });
   assert.deepEqual(readdirSync(dir).sort(), ['.clasp.json', 'Code.gs', 'Config.gs', 'Secrets.gs', 'appsscript.json']);
   assert.match(readFileSync(join(dir, 'Secrets.gs'), 'utf8'), /var ADMIN_KEY = 'a{32}';/);
-  assert.equal(google.scriptVersionOf(), '1.1.0');
+  assert.equal(google.scriptVersionOf(), '1.1.1');
   assert.match(readFileSync(join(dir, 'Config.gs'), 'utf8'), /var CONFIG = /);
 });
 
@@ -65,4 +65,10 @@ test('מצב מקומי: מעבר מגרסה 1.0 ושמירה חלקית', () =>
   store.saveLocal({ claude: { envId: 'env1' } }, f);
   const l2 = store.loadLocal(f);
   assert.equal(l2.claude.envId, 'env1'); assert.deepEqual(l2.claude.routines, {}, 'שדות אחרים נשמרים');
+});
+
+test('הודעה ברורה כשנטפרי חוסם את ההעלאה', () => {
+  const html = '<iframe src="//netfree.link/block/#%7B%22block%22:%22badwords%22%2C%22page_info%22:%7B%7D%7D"></iframe>';
+  const e = google.explainClaspError(html);
+  assert.equal(e.code, 'NETFREE'); assert.match(e.message, /מסנן מילים/);
 });

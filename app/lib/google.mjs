@@ -33,6 +33,12 @@ export function runClasp(args, { cwd = PROJECT_DIR, timeoutMs = 120_000, onLine 
 
 /** הודעת שגיאה ברורה מפלט של clasp. */
 export function explainClaspError(out) {
+  if (/netfree\.link\/block/i.test(out)) {
+    const reason = (/%22block%22:%22(\w+)%22/.exec(out) || /"block"\s*:\s*"(\w+)"/.exec(out) || [])[1] || '';
+    return { code: 'NETFREE', message: reason === 'badwords'
+      ? 'נטפרי חסם את ההעלאה לגוגל בגלל מילה בתוכן (מסנן מילים). אם כתבת הודעה או משפט פתיחה, נסה לנסח אחרת. אם זה חוזר, שלח את היומן למפתח.'
+      : 'נטפרי חסם את הפנייה לגוגל' + (reason ? ' (' + reason + ')' : '') + '. אפשר לבקש מנטפרי לפתוח את script.googleapis.com.' };
+  }
   if (API_DISABLED_RE.test(out)) return { code: 'API_DISABLED', message: 'צריך להפעיל את "Google Apps Script API" בהגדרות של גוגל (מתג אחד), ואז לנסות שוב.' };
   if (/not logged in|login required|No credentials|invalid_grant|Could not read API credentials/i.test(out)) return { code: 'NOT_LOGGED_IN', message: 'צריך להתחבר לגוגל.' };
   if (/ENOTFOUND|ECONNRESET|ETIMEDOUT|EAI_AGAIN|certificate|self.signed/i.test(out)) return { code: 'NETWORK', message: 'אין חיבור לגוגל. אם יש נטפרי, ודא שהאתר script.google.com פתוח ושהתעודה של נטפרי מותקנת.' };
@@ -100,6 +106,11 @@ export async function deploy({ local, adminKey, settings, onStep = () => {} }) {
   const fail = (r) => { const e = explainClaspError(r.out); throw Object.assign(new Error(e.message), { code: e.code, detail: r.out }); };
   let scriptId = local.scriptId;
   const claspJson = join(PROJECT_DIR, '.clasp.json');
+  // פרויקט שנוצר בניסיון קודם שנכשל באמצע: משתמשים בו, ולא יוצרים פרויקט נוסף בחשבון
+  if (!scriptId && existsSync(claspJson)) {
+    try { scriptId = JSON.parse(readFileSync(claspJson, 'utf8')).scriptId || ''; } catch { /* קובץ פגום: נוצר חדש */ }
+    if (scriptId) onStep('ממשיך עם הפרויקט שכבר נוצר בגוגל');
+  }
   if (!scriptId || !existsSync(claspJson)) {
     if (scriptId) {
       writeFileSync(claspJson, JSON.stringify({ scriptId, rootDir: '.' }), 'utf8');

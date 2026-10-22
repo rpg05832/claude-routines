@@ -68,7 +68,7 @@ test('הטריגר נוצר באישור ההרשאות ובקריאה הראש�
 test('ממשק לתוכנה: מפתח בלבד, יומן, ובלי פעולות שינוי', () => {
   const config = configFor(); const env = makeEnv({ config });
   for (const a of ['', 'x', 'k'.repeat(31), null]) assert.deepEqual(env.admin('ping', {}, a), { ok: false, error: 'NO_ACCESS' });
-  assert.equal(env.admin('ping').result.version, '1.1.0');
+  assert.equal(env.admin('ping').result.version, '1.1.1');
   yem(env, { k: config.yemot.key, ApiCallId: 'z', cw_choice: '1' });
   const log = env.admin('log').result;
   assert.equal(log.length, 1); assert.match(log[0].detail, /נשלח/);
@@ -86,4 +86,11 @@ test('בלי Config.gs הסקריפט לא קורס', () => {
   assert.match(yem(env, { k: 'x' }), /אין גישה/);
   env.g.tick();
   assert.equal(KEY.length, 32);
+});
+
+test('הקוד לא מכיל מילים שמסנן נטפרי חוסם', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../src/Code.gs', import.meta.url), 'utf8');
+  // נבדק מול נטפרי ב-22.10.2026: העלאה של קוד שמכיל את השם המלא של שירות הבקשות נחסמת (badwords)
+  assert.ok(!src.includes('Url' + 'FetchApp'), 'שם השירות חייב להופיע רק מפוצל');
 });
