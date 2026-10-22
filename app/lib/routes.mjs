@@ -126,7 +126,7 @@ export function makeRoutes({ appVersion, openUrl }) {
       const l = loadLocal();
       if (l.mode === 'google') {
         try { return { kind: 'google', items: await callRemote(l.google.execUrl, l.google.adminKey, 'log') }; }
-        catch (e) { return { kind: 'google', unavailable: e.code === 'BLOCKED' ? 'הכתובת של הסקריפט חסומה כאן (למשל בנטפרי), ולכן היומן מהענן לא זמין. השליחות עצמן עובדות.' : e.message }; }
+        catch (e) { return { kind: 'google', unavailable: e.code === 'BLOCKED' ? 'הכתובת של הסקריפט לא נגישה מהמחשב הזה, ולכן היומן מהענן לא זמין. השליחות עצמן עובדות.' : e.message }; }
       }
       if (l.mode === 'github') return { kind: 'github', items: await new GitHub(l.github.token).runs(l.github.repo) };
       if (l.mode === 'claude') return { kind: 'claude', items: await guard('יומן', () => cc.recentRuns([...Object.values(l.claude.routines), ...Object.values(l.claude.manual)])) };

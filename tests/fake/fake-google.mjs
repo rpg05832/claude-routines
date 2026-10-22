@@ -1,5 +1,5 @@
 // גוגל מדומה: מריץ את Code.gs עם Config.gs ו-Secrets.gs שהתוכנה "העלתה" (מתיקיית הפרויקט שלה), מאחורי HTTP.
-// FAKE_BLOCK=1: מתנהג כמו נטפרי (418) לכל קריאה מהתוכנה. ימות (?k=) לא עוברים דרך נטפרי ולכן לא נחסמים.
+// FAKE_BLOCK=1: כתובת הסקריפט חסומה (418) לכל קריאה מהתוכנה. קריאות של ימות (?k=) לא נחסמות.
 // שימוש: node tests/fake/fake-google.mjs <port> <projectDir>
 import http from 'node:http';
 import vm from 'node:vm';
@@ -42,4 +42,4 @@ http.createServer((req, res) => {
     res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
     res.end(r.text ?? 'html');
   });
-}).listen(port, '127.0.0.1', () => console.log('fake google on', port, process.env.FAKE_BLOCK ? '(netfree block)' : ''));
+}).listen(port, '127.0.0.1', () => console.log('fake google on', port, process.env.FAKE_BLOCK ? '(blocked)' : ''));

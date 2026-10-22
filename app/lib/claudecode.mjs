@@ -40,7 +40,7 @@ export function runClaude(exe, args, { timeoutMs = 180_000, cwd = CWD } = {}) {
   return new Promise((resolve) => {
     const child = spawn(cmd, argv, {
       cwd, windowsHide: true, windowsVerbatimArguments: isCmd,
-      // תעודת נטפרי: Claude Code של npm רץ על Node, ובלי זה נכשל ב-"SSL certificate verification failed"
+      // תעודות האבטחה של Windows: Claude Code של npm רץ על Node, וברשת עם תעודה מותאמת בלי זה נכשל ב-"SSL certificate verification failed"
       env: { ...process.env, NODE_OPTIONS: '--use-system-ca', NODE_USE_SYSTEM_CA: '1' },
     });
     let out = '';
@@ -83,7 +83,7 @@ export async function install() {
   });
   log('claude-install', r.code, r.out.slice(-1500));
   const d = await detect();
-  if (!d.installed) throw Object.assign(new Error('ההתקנה של Claude Code לא הצליחה. אם יש נטפרי, ודא שהאתר claude.ai פתוח.'), { detail: r.out });
+  if (!d.installed) throw Object.assign(new Error('ההתקנה של Claude Code לא הצליחה. ודא שהאתר claude.ai נגיש מהמחשב.'), { detail: r.out });
   return d;
 }
 
@@ -119,7 +119,7 @@ export async function remoteTriggerBatch(calls, { exe = findClaude() } = {}) {
   if (results.length < calls.length) {
     const err = /"result":"([^"]{0,300})/.exec(r.out);
     const msg = err ? err[1] : r.out.trim().split(/\r?\n/).slice(-1)[0];
-    if (/SSL|certificate/i.test(msg)) throw Object.assign(new Error('Claude Code לא מצליח להתחבר (תעודת אבטחה). אם יש נטפרי, ודא שתעודת נטפרי מותקנת ב-Windows.'), { detail: r.out });
+    if (/SSL|certificate/i.test(msg)) throw Object.assign(new Error('Claude Code לא מצליח להתחבר (תעודת אבטחה). ודא שתעודת האבטחה של הרשת מותקנת ב-Windows.'), { detail: r.out });
     if (/login|log in|auth|401/i.test(msg)) throw Object.assign(new Error('Claude Code לא מחובר. צריך להתחבר ל-Claude.'), { code: 'NOT_LOGGED_IN', detail: r.out });
     throw Object.assign(new Error('Claude Code לא השלים את הפעולה: ' + String(msg).slice(0, 200)), { detail: r.out.slice(-3000) });
   }

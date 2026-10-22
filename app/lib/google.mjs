@@ -14,7 +14,7 @@ const API_DISABLED_RE = /has not enabled the Apps Script API|Apps Script API has
 export function runClasp(args, { cwd = PROJECT_DIR, timeoutMs = 120_000, onLine } = {}) {
   mkdirSync(cwd, { recursive: true });
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, ['--no-warnings', '--use-system-ca', CLASP, ...args], {   // use-system-ca: תעודת נטפרי מ-Windows
+    const child = spawn(process.execPath, ['--no-warnings', '--use-system-ca', CLASP, ...args], {   // use-system-ca: תעודות האבטחה של Windows
       cwd, windowsHide: true, env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0' },
     });
     let out = '';
@@ -35,13 +35,13 @@ export function runClasp(args, { cwd = PROJECT_DIR, timeoutMs = 120_000, onLine 
 export function explainClaspError(out) {
   if (/netfree\.link\/block/i.test(out)) {
     const reason = (/%22block%22:%22(\w+)%22/.exec(out) || /"block"\s*:\s*"(\w+)"/.exec(out) || [])[1] || '';
-    return { code: 'NETFREE', message: reason === 'badwords'
-      ? 'נטפרי חסם את ההעלאה לגוגל בגלל מילה בתוכן (מסנן מילים). אם כתבת הודעה או משפט פתיחה, נסה לנסח אחרת. אם זה חוזר, שלח את היומן למפתח.'
-      : 'נטפרי חסם את הפנייה לגוגל' + (reason ? ' (' + reason + ')' : '') + '. אפשר לבקש מנטפרי לפתוח את script.googleapis.com.' };
+    return { code: 'FILTERED', message: reason === 'badwords'
+      ? 'סינון האינטרנט חסם את ההעלאה לגוגל בגלל מילה בתוכן. אם כתבת הודעה או משפט פתיחה, נסה לנסח אחרת. אם זה חוזר, שלח את היומן למפתח.'
+      : 'סינון האינטרנט חסם את הפנייה לגוגל' + (reason ? ' (' + reason + ')' : '') + '. צריך שהאתר script.googleapis.com יהיה נגיש.' };
   }
   if (API_DISABLED_RE.test(out)) return { code: 'API_DISABLED', message: 'צריך להפעיל את "Google Apps Script API" בהגדרות של גוגל (מתג אחד), ואז לנסות שוב.' };
   if (/not logged in|login required|No credentials|invalid_grant|Could not read API credentials/i.test(out)) return { code: 'NOT_LOGGED_IN', message: 'צריך להתחבר לגוגל.' };
-  if (/ENOTFOUND|ECONNRESET|ETIMEDOUT|EAI_AGAIN|certificate|self.signed/i.test(out)) return { code: 'NETWORK', message: 'אין חיבור לגוגל. אם יש נטפרי, ודא שהאתר script.google.com פתוח ושהתעודה של נטפרי מותקנת.' };
+  if (/ENOTFOUND|ECONNRESET|ETIMEDOUT|EAI_AGAIN|certificate|self.signed/i.test(out)) return { code: 'NETWORK', message: 'אין חיבור לגוגל. ודא שהאתר script.google.com נגיש פתוח ושהתעודה של נטפרי מותקנת.' };
   const last = out.trim().split(/\r?\n/).filter(Boolean).slice(-2).join(' ');
   return { code: 'CLASP', message: last.slice(0, 300) || 'שגיאה לא ידועה' };
 }

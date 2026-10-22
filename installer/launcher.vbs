@@ -1,5 +1,5 @@
 ' Starts Claude Wake without a console window and opens its app window.
-' --use-system-ca: trust the Windows certificate store (needed behind NetFree).
+' --use-system-ca: trust the Windows certificate store.
 Set sh = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 base = fso.GetParentFolderName(WScript.ScriptFullName)

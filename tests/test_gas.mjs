@@ -88,9 +88,8 @@ test('בלי Config.gs הסקריפט לא קורס', () => {
   assert.equal(KEY.length, 32);
 });
 
-test('הקוד לא מכיל מילים שמסנן נטפרי חוסם', async () => {
+test('שם שירות הבקשות לא כתוב במלואו בקוד', async () => {
   const { readFileSync } = await import('node:fs');
   const src = readFileSync(new URL('../src/Code.gs', import.meta.url), 'utf8');
-  // נבדק מול נטפרי ב-22.10.2026: העלאה של קוד שמכיל את השם המלא של שירות הבקשות נחסמת (badwords)
   assert.ok(!src.includes('Url' + 'FetchApp'), 'שם השירות חייב להופיע רק מפוצל');
 });

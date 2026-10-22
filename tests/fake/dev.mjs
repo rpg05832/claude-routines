@@ -1,6 +1,6 @@
 // הרצת התוכנה מול שירותים מדומים (גוגל, clasp, Claude Code, קלוד, ימות, GitHub), לבדיקה בדפדפן:
 //   node tests/fake/dev.mjs [--keep] [--block] [--noenv]   ואז http://127.0.0.1:8789/?t=dev
-//   --block: גוגל מתנהג כמו נטפרי.  --noenv: אין רוטינות בחשבון claude.ai.  --keep: לא למחוק את המצב הקודם.
+//   --block: כתובת הסקריפט חסומה מהמחשב.  --noenv: אין רוטינות בחשבון claude.ai.  --keep: לא למחוק את המצב הקודם.
 import { spawn } from 'node:child_process';
 import { mkdirSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';

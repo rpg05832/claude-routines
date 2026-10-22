@@ -53,7 +53,7 @@ test('תקשורת עם הסקריפט: הצלחה, הרשאות חסרות וש
   await assert.rejects(callRemote('', 'k', 'ping'), { code: 'NOT_DEPLOYED' });
 });
 
-test('חסימה של נטפרי מזוהה', async () => {
+test('כתובת חסומה ברשת מזוהה', async () => {
   await assert.rejects(callRemote('https://x/exec', 'k', 'ping', {}, { fetchImpl: async () => res(418, '<html>blockByNetFree</html>') }), { code: 'BLOCKED' });
 });
 
@@ -67,8 +67,8 @@ test('מצב מקומי: מעבר מגרסה 1.0 ושמירה חלקית', () =>
   assert.equal(l2.claude.envId, 'env1'); assert.deepEqual(l2.claude.routines, {}, 'שדות אחרים נשמרים');
 });
 
-test('הודעה ברורה כשנטפרי חוסם את ההעלאה', () => {
+test('הודעה ברורה כשסינון האינטרנט חוסם את ההעלאה', () => {
   const html = '<iframe src="//netfree.link/block/#%7B%22block%22:%22badwords%22%2C%22page_info%22:%7B%7D%7D"></iframe>';
   const e = google.explainClaspError(html);
-  assert.equal(e.code, 'NETFREE'); assert.match(e.message, /מסנן מילים/);
+  assert.equal(e.code, 'FILTERED'); assert.match(e.message, /מילה בתוכן/);
 });

@@ -1,5 +1,5 @@
 // מסלול GitHub: הדלקה לפי תזמון ב-GitHub Actions. התוכנה מנהלת ריפו של המשתמש דרך ה-API של GitHub:
-// קבצים (workflow, wake.json, wake.py), Secrets מוצפנים, הפעלה ידנית ויומן ריצות. GitHub פתוח בנטפרי.
+// קבצים (workflow, wake.json, wake.py), Secrets מוצפנים, הפעלה ידנית ויומן ריצות.
 import nacl from 'tweetnacl';
 import blake from 'blakejs';
 import { readFileSync } from 'node:fs';
