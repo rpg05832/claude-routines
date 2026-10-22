@@ -12,6 +12,7 @@ export const LINKS = {
   routines: () => 'https://claude.ai/code/routines',
   usage: () => 'https://claude.ai/settings/usage',
   editor: (l) => l.google.scriptId && google.editorUrl(l.google.scriptId),
+  triggers: (l) => l.google.scriptId && google.triggersUrl(l.google.scriptId),
   execPage: (l) => l.google.execUrl,
   ghTokens: () => 'https://github.com/settings/personal-access-tokens/new',
   ghRepo: (l) => l.github.repo && `https://github.com/${l.github.repo}`,

@@ -145,3 +145,4 @@ export async function deploy({ local, adminKey, settings, onStep = () => {} }) {
 }
 
 export const editorUrl = (scriptId) => `https://script.google.com/d/${scriptId}/edit`;
+export const triggersUrl = (scriptId) => `https://script.google.com/home/projects/${scriptId}/triggers`;

@@ -9,7 +9,7 @@
  * קוד המקור, ובו הטוקנים, גלוי רק לבעל הסקריפט.
  */
 
-var SCRIPT_VERSION = '1.1.1';
+var SCRIPT_VERSION = '1.1.3';
 var FIRE_URL_RE = /^https:\/\/api\.anthropic\.com\/v1\/claude_code\/routines\/trig_[A-Za-z0-9]+\/fire$/;
 var BETA_HEADER = 'experimental-cc-routine-2026-04-01';
 var TZ = 'Asia/Jerusalem';
@@ -184,11 +184,15 @@ function route_(e) {
 }
 
 /**
- * להרצה פעם אחת מעורך הסקריפט (בוחרים authorize ולוחצים Run): גוגל מבקש לאשר את כל ההרשאות,
- * ונוצר הטריגר שבודק את התזמונים כל דקה.
+ * להרצה פעם אחת: דרך טריגר חד-פעמי (הדרך הראשית באשף) או "הפעלה" בעורך. בשמירת הטריגר או בהפעלה
+ * גוגל מבקש לאשר את כל ההרשאות. הפונקציה יוצרת את הטריגר שבודק את התזמונים כל דקה, ומוחקת את
+ * הטריגר החד-פעמי שהפעיל אותה.
  */
 function authorize() {
   http_().getRequest('https://www.call2all.co.il/ym/api/GetSession');
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'authorize') ScriptApp.deleteTrigger(t);
+  });
   ensureTicker_();
   props_().setProperty('tickerOk', SCRIPT_VERSION);
   addLog_('הגדרה', 'ההרשאות אושרו והתזמונים פעילים', true);

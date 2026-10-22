@@ -77,3 +77,6 @@ button.mode b { font-size: 19px; }
 button.mode .tag { font-size: 13px; color: var(--accent); }
 button.mode.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
 h3 { font-size: 16px; margin: 14px 0 6px; }
+table.mini { border-collapse: collapse; margin: 6px 0 4px; }
+table.mini td { padding: 4px 10px; border-bottom: 1px solid var(--line); font-size: 15px; }
+table.mini td:first-child { color: var(--muted); }

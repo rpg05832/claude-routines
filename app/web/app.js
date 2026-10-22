@@ -67,6 +67,7 @@ var onEnter = {
   },
   'g-deploy': function () { if (S.google.deployed) { $('depRun').textContent = 'העלאה מחדש'; $('depNext').disabled = false; line('depStatus', 'הסקריפט כבר בגוגל ✓', 'ok'); } },
   'g-auth': function () {
+    showTriggerWhen();
     if (S.google.authorized) line('authStatus', 'סומן שההרשאות אושרו ✓', 'ok');
     api('google/ping').then(function (r) {
       if (r.reachable && r.ticker) { line('authStatus', 'הסקריפט עונה והתזמונים פעילים ✓', 'ok'); api('google/authorized').then(function (s) { S = s; }); }
@@ -114,6 +115,20 @@ $('depRun').onclick = function () {
   }).catch(function (e) { line('depStatus', e.message, 'bad'); }).then(function () { busy(b, false); });
 };
 $('authEditor').onclick = function () { openLink('editor'); };
+$('authTriggers').onclick = function () { openLink('triggers'); };
+/** תאריך ושעה לטריגר החד-פעמי: עכשיו + 4 דקות, בשעון ישראל, בפורמט של גוגל (YYYY-MM-DD HH:MM). */
+function triggerWhen() {
+  var p = {};
+  new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+    .formatToParts(new Date(Date.now() + 4 * 60000)).forEach(function (x) { p[x.type] = x.value; });
+  return p.year + '-' + p.month + '-' + p.day + ' ' + p.hour + ':' + p.minute;
+}
+function showTriggerWhen() { $('authWhen').textContent = triggerWhen(); }
+setInterval(function () { if (!$('authWhen').closest('.hidden')) showTriggerWhen(); }, 20000);
+$('authCopy').onclick = function () {
+  showTriggerWhen();
+  navigator.clipboard.writeText($('authWhen').textContent).then(function () { toast('הועתק: ' + $('authWhen').textContent); }, function () { toast('ההעתקה נכשלה'); });
+};
 $('authDone').onclick = function () { api('google/authorized').then(function (s) { S = s; goStep(stepIdx + 1); }); };
 
 /* ----- חיבור לרוטינה (גוגל ו-GitHub) ----- */

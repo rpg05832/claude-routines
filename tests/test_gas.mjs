@@ -60,6 +60,10 @@ test('הטריגר נוצר באישור ההרשאות ובקריאה הראש�
   assert.equal(env.triggers.length, 1);
   env.g.authorize();
   assert.equal(env.triggers.length, 1, 'לא נוצר טריגר כפול');
+  // טריגר חד-פעמי של authorize (כמו שהמשתמש יוצר באשף) נמחק אחרי ההרצה; טריגר הדקה נשאר
+  env.triggers.push({ getHandlerFunction: () => 'authorize' });
+  env.g.authorize();
+  assert.deepEqual(env.triggers.map(t => t.getHandlerFunction()), ['tick']);
   const env2 = makeEnv({ config: configFor() });
   yem(env2, { k: 'x' });
   assert.equal(env2.triggers.length, 1, 'קריאה מימות מוודאת שהטריגר קיים');
@@ -68,7 +72,7 @@ test('הטריגר נוצר באישור ההרשאות ובקריאה הראש�
 test('ממשק לתוכנה: מפתח בלבד, יומן, ובלי פעולות שינוי', () => {
   const config = configFor(); const env = makeEnv({ config });
   for (const a of ['', 'x', 'k'.repeat(31), null]) assert.deepEqual(env.admin('ping', {}, a), { ok: false, error: 'NO_ACCESS' });
-  assert.equal(env.admin('ping').result.version, '1.1.1');
+  assert.equal(env.admin('ping').result.version, '1.1.3');
   yem(env, { k: config.yemot.key, ApiCallId: 'z', cw_choice: '1' });
   const log = env.admin('log').result;
   assert.equal(log.length, 1); assert.match(log[0].detail, /נשלח/);

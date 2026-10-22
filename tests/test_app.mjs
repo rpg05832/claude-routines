@@ -29,7 +29,7 @@ test('קבצי הסקריפט שעולים לגוגל: הקוד, המניפסט 
   google.writeProjectFiles('a'.repeat(32), settingsMod.applySettings(settingsMod.defaultSettings(), {}), { dir });
   assert.deepEqual(readdirSync(dir).sort(), ['.clasp.json', 'Code.gs', 'Config.gs', 'Secrets.gs', 'appsscript.json']);
   assert.match(readFileSync(join(dir, 'Secrets.gs'), 'utf8'), /var ADMIN_KEY = 'a{32}';/);
-  assert.equal(google.scriptVersionOf(), '1.1.1');
+  assert.equal(google.scriptVersionOf(), '1.1.3');
   assert.match(readFileSync(join(dir, 'Config.gs'), 'utf8'), /var CONFIG = /);
 });
 

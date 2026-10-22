@@ -73,14 +73,26 @@
 
     <div class="card step" data-step="g-auth">
       <h2>אישור הרשאות (פעם אחת)</h2>
+      <p>הסקריפט צריך את האישור שלך כדי לשלוח בקשות לקלוד ולהריץ תזמונים. מאשרים דרך טריגר חד-פעמי:</p>
       <ol class="bul">
-        <li>לוחצים "פתיחת הסקריפט". נפתח עורך הסקריפט של גוגל.</li>
-        <li>בשורת הכלים למעלה, ברשימת הפונקציות, בוחרים <b>authorize</b>, ולוחצים <b>Run</b> (הפעלה).</li>
-        <li>"Review permissions", בוחרים חשבון. אם מופיע "Google hasn't verified this app": <b>Advanced</b>, ואז <b>Go to הדלקת קלוד (unsafe)</b>. זה הסקריפט שלך, לכן גוגל לא אימת אותו.</li>
-        <li><b>Allow</b>. בתחתית העורך יופיע "ההרשאות אושרו".</li>
+        <li>לוחצים <b>"פתיחת דף הטריגרים"</b>. נפתח דף הטריגרים של הסקריפט בגוגל.</li>
+        <li>למטה בפינה: <b>הוספת טריגר</b> (Add Trigger).</li>
+        <li>ממלאים:
+          <table class="mini">
+            <tr><td>פונקציה להרצה</td><td><code>authorize</code></td></tr>
+            <tr><td>פריסה להרצה</td><td>Head</td></tr>
+            <tr><td>מקור האירוע</td><td>מבוסס זמן (Time-driven)</td></tr>
+            <tr><td>סוג הטריגר</td><td>תאריך ושעה ספציפיים</td></tr>
+            <tr><td>תאריך ושעה</td><td><code id="authWhen" dir="ltr"></code> <button class="link" id="authCopy">העתקה</button></td></tr>
+          </table>
+        </li>
+        <li><b>שמירה</b>. גוגל מבקש לאשר הרשאות: בוחרים חשבון. אם מופיע "Google hasn't verified this app": <b>Advanced</b>, ואז <b>Go to הדלקת קלוד (unsafe)</b>. זה הסקריפט שלך, לכן גוגל לא אימת אותו. ואז <b>Allow</b>.</li>
+        <li>בשעה שנקבעה הטריגר רץ פעם אחת ונמחק לבד. ב"הרצות" (בסרגל הצד) יופיע <b>"ההרשאות אושרו"</b>.</li>
       </ol>
+      <p class="muted">השעה מתעדכנת כאן לבד, תמיד כמה דקות קדימה. אם עבר זמן מאז שהעתקת, מעתיקים שוב.</p>
       <div class="status-line" id="authStatus"></div>
-      <div class="actions"><button id="authEditor">פתיחת הסקריפט</button><button class="primary" id="authDone">סיימתי, ראיתי "ההרשאות אושרו"</button></div>
+      <div class="actions"><button class="primary" id="authTriggers">פתיחת דף הטריגרים</button><button id="authDone">סיימתי, ראיתי "ההרשאות אושרו"</button></div>
+      <p class="muted">אפשרות אחרת: <button class="link" id="authEditor">פתיחת העורך</button>, בחירת <b>authorize</b> ולחיצה על <b>הפעלה</b> (Run).</p>
     </div>
 
     <!-- ----- חיבור לרוטינה (גוגל ו-GitHub) ----- -->

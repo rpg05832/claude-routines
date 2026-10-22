@@ -42,7 +42,7 @@ export function makeEnv({ now = new Date('2026-10-25T04:12:00Z'), fireCode = 200
     HtmlService: { createHtmlOutput: () => ({ setTitle() { return this; }, html: true }) },
     ScriptApp: {
       getService: () => ({ getUrl: () => execUrl }),
-      getProjectTriggers: () => triggers,
+      getProjectTriggers: () => triggers.slice(),   // כמו בגוגל: מערך חדש בכל קריאה
       newTrigger: (fn) => ({ timeBased: () => ({ everyMinutes: () => ({ create: () => triggers.push({ getHandlerFunction: () => fn }) }) }) }),
       deleteTrigger: t => triggers.splice(triggers.indexOf(t), 1),
     },
