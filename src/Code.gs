@@ -2,14 +2,16 @@
  * הדלקת קלוד (Claude Wake) - Google Apps Script
  *
  * שולח הודעה קבועה לרוטינה של Claude Code בענן:
- *   - מהטלפון: שלוחת API בימות המשיח, תפריט מקשים, הקשה, שליחה
+ *   - מהטלפון: שלוחת תפריט רגילה בימות המשיח. כל מקש מוביל לתת-שלוחה שמשמיעה אישור ומנתקת.
+ *     הסקריפט קורא כל דקה את יומן הכניסות לשלוחות של ימות, ושולח לפי המקש שהוקש.
+ *     (שלוחת API לא עובדת מול גוגל: כתובת הסקריפט עונה בהפניה, וימות לא ממשיכים אחריה.)
  *   - לפי תזמון: שעות וימים לפי שעון ישראל (טריגר שרץ כל דקה)
  *
  * ההגדרות מגיעות מהקובץ Config.gs (משתנה CONFIG), שתוכנת "הדלקת קלוד" במחשב כותבת ומעלה דרך clasp.
  * קוד המקור, ובו הטוקנים, גלוי רק לבעל הסקריפט.
  */
 
-var SCRIPT_VERSION = '1.1.3';
+var SCRIPT_VERSION = '1.2.1';
 var FIRE_URL_RE = /^https:\/\/api\.anthropic\.com\/v1\/claude_code\/routines\/trig_[A-Za-z0-9]+\/fire$/;
 var BETA_HEADER = 'experimental-cc-routine-2026-04-01';
 var TZ = 'Asia/Jerusalem';
@@ -115,7 +117,75 @@ function safeEq_(a, b) {
   return x === 0;
 }
 
-/** מטפל בבקשה אחת של שלוחת ה-API. מחזיר את מחרוזת התשובה לימות. */
+/* ---------- שלוחת תפריט: קריאת יומן הכניסות ---------- */
+
+var YEMOT_API = 'https://www.call2all.co.il/ym/api/';
+
+/** שדות שורה ביומן של ימות: Folder#8/1%Phone#05...%CallId#... */
+function parseYmgrLine_(line) {
+  var o = {};
+  String(line).split('%').forEach(function (part) {
+    var i = part.indexOf('#');
+    if (i > 0) o[part.slice(0, i)] = part.slice(i + 1);
+  });
+  return o;
+}
+
+function trimSlashes_(s) { return String(s || '').replace(/^\/+|\/+$/g, ''); }
+
+/** רושם תקלה ביומן רק כשהיא משתנה, כדי שבדיקה כל דקה לא תציף אותו. */
+function yemotStatus_(err) {
+  var prev = props_().getProperty('yemotErr') || '';
+  if (prev === err) return;
+  props_().setProperty('yemotErr', err);
+  if (err) addLog_('טלפון', 'קריאת היומן של ימות נכשלה: ' + err, false);
+  else if (prev) addLog_('טלפון', 'החיבור לימות חזר לפעול', true);
+}
+
+/**
+ * רץ מ-tick. קורא את LogFolderEnterExit של החודש, ושולח לכל כניסה חדשה לתת-שלוחה של מקש.
+ * בהרצה הראשונה רק מסמן את המקום ביומן, כדי לא לשלוח על שיחות ישנות.
+ */
+function pollYemot_(cfg) {
+  var y = cfg.yemot;
+  if (!y.token || !y.extension) return;
+  var month = Utilities.formatDate(new Date(), TZ, 'yyyy-MM');
+  var j;
+  try {
+    var r = http_().fetch(YEMOT_API + 'GetTextFile', {
+      method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+      payload: JSON.stringify({ token: y.token, what: 'ivr2:/Log/LogFolderEnterExit-' + month + '.ymgr' })
+    });
+    j = JSON.parse(r.getContentText() || '{}');
+  } catch (e) { yemotStatus_(e.message); return; }
+  if (j.responseStatus !== 'OK') { yemotStatus_(String(j.message || j.responseStatus || 'אין תשובה')); return; }
+  yemotStatus_('');
+
+  var lines = String(j.contents || '').split(/\r?\n/).filter(function (l) { return l.trim(); });
+  var state = JSON.parse(props_().getProperty('ylog') || 'null');
+  if (!state) { props_().setProperty('ylog', JSON.stringify({ m: month, n: lines.length })); return; }
+  var from = state.m === month ? state.n : 0;
+  if (from > lines.length) from = lines.length;   // הקובץ התקצר: ממשיכים מהסוף
+  props_().setProperty('ylog', JSON.stringify({ m: month, n: lines.length }));   // לפני השליחה: עדיף פספוס על כפילות
+
+  var ext = trimSlashes_(y.extension);
+  var allowed = (y.allowedPhones || []).map(normPhone_).filter(String);
+  var cache = CacheService.getScriptCache();
+  for (var i = from; i < lines.length; i++) {
+    var row = parseYmgrLine_(lines[i]);
+    var folder = trimSlashes_(row.Folder);
+    if (folder.indexOf(ext + '/') !== 0) continue;
+    var digit = folder.slice(ext.length + 1);
+    if (!/^[0-9]$/.test(digit) || !findKey_(cfg, digit)) continue;
+    if (allowed.length && allowed.indexOf(normPhone_(row.Phone)) < 0) { addLog_('טלפון', 'שיחה ממספר לא מורשה', false); continue; }
+    var dedupe = 'yf:' + (row.CallId || i) + ':' + digit;
+    if (cache.get(dedupe)) continue;
+    cache.put(dedupe, '1', 21600);
+    fireKey_(cfg, digit, 'טלפון');
+  }
+}
+
+/** מטפל בבקשה אחת של שלוחת API (הדרך הישנה. נשארת למי שהשלוחה שלו עוד מוגדרת כך). מחזיר את מחרוזת התשובה לימות. */
 function handleYemot_(p, cfg) {
   if (p.hangup === 'yes') return '';
   var y = cfg.yemot;
@@ -211,9 +281,10 @@ function yemotEntry_(p) {
 
 /* ===================== תזמונים ===================== */
 
-/** רץ כל דקה (טריגר זמן). כל תזמון רץ פעם אחת ביום, עד 20 דקות אחרי השעה שנקבעה. */
+/** רץ כל דקה (טריגר זמן): בודק את יומן ימות, ואת התזמונים (כל תזמון פעם אחת ביום, עד 20 דקות אחרי השעה). */
 function tick() {
   var cfg = loadConfig_();
+  try { pollYemot_(cfg); } catch (e) { addLog_('טלפון', 'תקלה: ' + e.message, false); }
   if (!cfg.schedules.length) return;
   var now = new Date();
   var today = Utilities.formatDate(now, TZ, 'yyyy-MM-dd');

@@ -72,12 +72,49 @@ test('הטריגר נוצר באישור ההרשאות ובקריאה הראש�
 test('ממשק לתוכנה: מפתח בלבד, יומן, ובלי פעולות שינוי', () => {
   const config = configFor(); const env = makeEnv({ config });
   for (const a of ['', 'x', 'k'.repeat(31), null]) assert.deepEqual(env.admin('ping', {}, a), { ok: false, error: 'NO_ACCESS' });
-  assert.equal(env.admin('ping').result.version, '1.1.3');
+  assert.equal(env.admin('ping').result.version, '1.2.1');
   yem(env, { k: config.yemot.key, ApiCallId: 'z', cw_choice: '1' });
   const log = env.admin('log').result;
   assert.equal(log.length, 1); assert.match(log[0].detail, /נשלח/);
   assert.ok(!JSON.stringify(log).includes('sk-tok'));
   for (const op of ['save', 'fire', 'connectYemot', 'state']) assert.match(env.admin(op).error, /לא מוכרת/);
+});
+
+/** יומן הכניסות של ימות בהדמיה: שורות בפורמט ymgr. */
+function yemotLog(env, rows) {
+  env.ylog = rows.map(([folder, phone, call]) => `Folder#${folder}%Phone#${phone}%IncomingDID#025000000%EnterDate#02/11/2026%EnterTime#20:44:12%ExitTime#20:44:15%TimeTotal#3%CallId#${call}%PathTitle#`).join('\n');
+}
+const ylogHook = (envRef) => (url, o) => {
+  if (!url.endsWith('/GetTextFile')) return null;
+  const b = JSON.parse(o.payload);
+  if (b.token !== 'ytok') return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ responseStatus: 'ERROR', message: 'token' }) };
+  assert.match(b.what, /^ivr2:\/Log\/LogFolderEnterExit-2026-10\.ymgr$/);
+  return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ responseStatus: 'OK', contents: envRef.env.ylog || '' }) };
+};
+
+test('שלוחת תפריט: הסקריפט קורא את יומן הכניסות ושולח לפי תת-השלוחה', () => {
+  const ref = {}; const env = ref.env = makeEnv({ now: new Date('2026-10-25T10:00:00Z'), config: configFor(), fetchHook: ylogHook(ref) });
+  yemotLog(env, [['main', '0501234567', 'old'], ['8/1', '0501234567', 'old']]);
+  env.g.tick();
+  assert.equal(fires(env), 0, 'בהרצה הראשונה רק מסמנים את המקום ביומן, בלי לשלוח על שיחות ישנות');
+  yemotLog(env, [['main', '0501234567', 'old'], ['8/1', '0501234567', 'old'], ['main', '0501234567', 'c2'], ['8', '0501234567', 'c2'], ['8/2', '0501234567', 'c2'], ['8/7', '0501234567', 'c2'], ['9/1', '0501234567', 'c2']]);
+  env.g.tick();
+  assert.equal(fires(env), 1, 'רק 8/2: לא השלוחה הראשית, לא מקש שלא מוגדר ולא שלוחה אחרת');
+  assert.deepEqual(JSON.parse(env.fetches.find(f => f.url === URL_OK).o.payload), { text: 'דוח' });
+  env.g.tick();
+  assert.equal(fires(env), 1, 'שורה שכבר טופלה לא נשלחת שוב');
+  assert.match(env.admin('log').result[0].detail, /דוח \(2\): נשלח/);
+});
+
+test('שלוחת תפריט: טלפון לא מורשה, ותקלה בימות נרשמת פעם אחת', () => {
+  const ref = {}; const env = ref.env = makeEnv({ now: new Date('2026-10-25T10:00:00Z'), config: configFor({ allowedPhones: '0501234567' }), fetchHook: ylogHook(ref) });
+  env.g.tick();
+  yemotLog(env, [['8/1', '0529999999', 'a'], ['8/1', '972501234567', 'b']]);
+  env.g.tick();
+  assert.equal(fires(env), 1);
+  const bad = {}; const env2 = bad.env = makeEnv({ config: configFor({ token: 'wrong' }), fetchHook: ylogHook(bad) });
+  env2.g.tick(); env2.g.tick(); env2.g.tick();
+  assert.equal(env2.admin('log').result.filter(l => /ימות נכשלה/.test(l.detail)).length, 1);
 });
 
 test('שגיאת קלוד מוקראת בטלפון', () => {

@@ -6,7 +6,7 @@ export const FIRE_URL_RE = /^https:\/\/api\.anthropic\.com\/v1\/claude_code\/rou
 export function defaultSettings() {
   return {
     connections: [],   // {id, name, fireUrl, token}
-    keys: [{ digit: '1', name: 'הדלקת קלוד', connectionId: 'main', text: 'בוקר טוב', confirm: 'ההודעה נשלחה לקלוד' }],
+    keys: [{ digit: '1', name: 'הדלקת קלוד', connectionId: 'main', text: 'בוקר טוב', confirm: 'ההודעה תישלח לקלוד תוך דקה' }],
     schedules: [],     // {id, enabled, time:'HH:mm', days:[0..6], digit}
     yemot: { token: '', extension: '', key: '', allowedPhones: [], pin: '', greeting: 'שלום' },
   };
@@ -89,7 +89,8 @@ export function configGs(cfg, savedAt = new Date().toISOString()) {
     connections: cfg.connections,
     keys: cfg.keys,
     schedules: cfg.schedules,
-    yemot: { key: cfg.yemot.key, allowedPhones: cfg.yemot.allowedPhones, pin: cfg.yemot.pin, greeting: cfg.yemot.greeting },
+    // הטוקן והשלוחה: הסקריפט קורא בעזרתם את יומן הכניסות של ימות (שלוחת התפריט)
+    yemot: { key: cfg.yemot.key, token: cfg.yemot.token, extension: cfg.yemot.extension, allowedPhones: cfg.yemot.allowedPhones, pin: cfg.yemot.pin, greeting: cfg.yemot.greeting },
   };
   // JSON.stringify נותן JavaScript תקין. </ מוחלף כדי שלא יפריע לשום עורך HTML.
   return '// נוצר על ידי תוכנת "הדלקת קלוד". לא לערוך כאן: שינויים נעשים בתוכנה ונדרסים בשמירה הבאה.\n' +

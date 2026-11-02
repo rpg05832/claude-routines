@@ -21,7 +21,11 @@ globalThis.fetch = async (url, o = {}) => {
   if (u.startsWith('https://www.call2all.co.il/ym/api/')) {
     const body = JSON.parse(o.body || '{}');
     if (body.token !== 'ytoken') return res(200, { responseStatus: 'ERROR', message: 'token invalid' });
-    if (u.endsWith('/UpdateExtension')) writeFileSync(join(DATA, 'fake-yemot.json'), JSON.stringify(body));
+    if (u.endsWith('/UploadTextFile')) {   // הקבצים של השלוחה נשמרים לבדיקה
+      const f = join(DATA, 'fake-yemot.json');
+      let all = {}; try { all = JSON.parse(readFileSync(f, 'utf8')); } catch { /* */ }
+      all[body.what] = body.contents; writeFileSync(f, JSON.stringify(all, null, 1));
+    }
     return res(200, { responseStatus: 'OK', units: 50 });
   }
   if (u.startsWith('https://api.github.com/')) {

@@ -4,7 +4,7 @@ import { applySettings, publicSettings, israelOffsetMinutes, nextDstChange } fro
 import * as google from './google.mjs';
 import * as cc from './claudecode.mjs';
 import { GitHub, syncRepo } from './github.mjs';
-import { fire, connectYemot } from './direct.mjs';
+import { fire, connectYemot, yemotFiles } from './direct.mjs';
 import { callRemote } from './remote.mjs';
 import * as pc from './pc.mjs';
 
@@ -27,7 +27,6 @@ export function makeRoutes({ appVersion, openUrl }) {
     busy = what;
     try { return await fn(); } finally { busy = ''; }
   };
-  const apiLinkOf = (l) => l.google.execUrl ? `${l.google.execUrl}?k=${l.settings.yemot.key}` : '';
 
   function status() {
     const l = loadLocal();
@@ -40,7 +39,7 @@ export function makeRoutes({ appVersion, openUrl }) {
       google: {
         deployed: !!l.google.execUrl, email: l.google.email, authorized: l.google.authorized,
         deployedVersion: l.google.deployedVersion, bundledVersion: google.scriptVersionOf(),
-        configSavedAt: l.google.configSavedAt, yemotApiLink: apiLinkOf(l) ? 'מוגדרת' : '',
+        configSavedAt: l.google.configSavedAt,
       },
       claude: {
         envId: !!l.claude.envId, routines: Object.keys(l.claude.routines).length, lastSync: l.claude.lastSync,
@@ -104,14 +103,14 @@ export function makeRoutes({ appVersion, openUrl }) {
     /** שמירת הגדרות (מקשים, תזמונים, חיבורים, ימות) והחלה בענן לפי המסלול. */
     'settings/save': async (b) => guard('שמירה', async () => {
       const l = loadLocal();
-      const before = JSON.stringify({ e: l.settings.yemot.extension, k: l.settings.yemot.key, t: l.settings.yemot.token });
+      const before = JSON.stringify(yemotFiles(l.settings)) + l.settings.yemot.token;
       const settings = applySettings(l.settings, b.data || {});
       const saved = saveLocal({ settings });
       let message = await pushSettings(saved);
-      // אם השלוחה, המפתח או הטוקן של ימות השתנו: מחברים אותה מחדש, ישירות מול ימות
-      const after = JSON.stringify({ e: settings.yemot.extension, k: settings.yemot.key, t: settings.yemot.token });
+      // אם משהו בשלוחה השתנה (מקשים, ברכה, קוד, טלפונים, שלוחה או טוקן): מגדירים אותה מחדש, ישירות מול ימות
+      const after = JSON.stringify(yemotFiles(settings)) + settings.yemot.token;
       if (saved.mode === 'google' && settings.yemot.token && settings.yemot.extension && saved.google.execUrl && (before !== after || b.reconnectYemot)) {
-        const r = await connectYemot({ token: settings.yemot.token, extension: settings.yemot.extension, apiLink: apiLinkOf(loadLocal()) });
+        const r = await connectYemot({ settings });
         message += '. ' + r.message;
         addLocalLog('ימות', r.message, true);
       }

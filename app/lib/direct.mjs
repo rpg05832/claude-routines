@@ -40,12 +40,42 @@ async function yemotCall(token, method, body, fetchImpl) {
   return j;
 }
 
-/** בודק את טוקן ימות ומגדיר את השלוחה כשלוחת API שמפנה לסקריפט. */
-export async function connectYemot({ token, extension, apiLink }, { fetchImpl = fetch } = {}) {
+const ttsText = (t) => String(t || '').replace(/\s+/g, ' ').trim();
+
+/**
+ * הקבצים של שלוחת התפריט בימות. שלוחת API לא עובדת מול גוגל (הכתובת עונה בהפניה וימות לא ממשיכים
+ * אחריה), ולכן השלוחה היא תפריט רגיל: כל מקש עובר לתת-שלוחה שמשמיעה אישור ומנתקת. הסקריפט בגוגל
+ * קורא כל דקה את יומן הכניסות לשלוחות (LogFolderEnterExit) ושולח לפי תת-השלוחה.
+ */
+export function yemotFiles(settings) {
+  const y = settings.yemot, e = y.extension;
+  const keys = settings.keys.filter(k => /^[0-9]$/.test(k.digit));
+  const ini = ['type=menu'];
+  if (y.pin) ini.push('password=' + y.pin, 'password_error_goto=hangup');
+  if (y.allowedPhones.length) ini.push('white_list=yes', 'white_list_error_goto=hangup');
+  const menu = [y.greeting, ...keys.map(k => `ל${k.name || 'מקש ' + k.digit} הקישו ${k.digit}`)].map(ttsText).filter(Boolean).join(' ');
+  const lines = (a) => a.join('\n') + '\n';
+  const files = [
+    { what: `ivr2:${e}/ext.ini`, contents: lines(ini) },
+    { what: `ivr2:${e}/M1000.tts`, contents: menu || 'לא הוגדרו מקשים' },
+  ];
+  if (y.allowedPhones.length) files.push({ what: `ivr2:${e}/WhiteList.ini`, contents: lines(y.allowedPhones) });
+  for (const k of keys) {
+    files.push({ what: `ivr2:${e}/${k.digit}/ext.ini`, contents: lines(['type=playfile', 'playfile_end_goto=hangup']) });
+    files.push({ what: `ivr2:${e}/${k.digit}/000.tts`, contents: ttsText(k.confirm) || 'הבקשה התקבלה. ההודעה תישלח לקלוד תוך דקה' });
+  }
+  return files;
+}
+
+/** בודק את טוקן ימות ומגדיר את שלוחת התפריט (ראה yemotFiles). */
+export async function connectYemot({ settings }, { fetchImpl = fetch } = {}) {
+  const { token, extension } = settings.yemot;
   if (!token) throw new Error('חסר טוקן של ימות');
   if (!extension) throw new Error('חסר מספר שלוחה');
-  if (!apiLink) throw new Error('הסקריפט עוד לא פורסם');
   const s = await yemotCall(token, 'GetSession', {}, fetchImpl);
-  await yemotCall(token, 'UpdateExtension', { path: 'ivr2:' + extension, type: 'api', api_link: apiLink }, fetchImpl);
-  return { ok: true, message: `שלוחה ${extension} מחוברת. יחידות במערכת: ${s.units ?? '?'}` };
+  // UploadTextFile לא יוצר תיקייה חדשה, ו-UpdateExtension כן. אחר כך ext.ini נכתב מחדש במלואו.
+  const files = yemotFiles(settings);
+  for (const dir of new Set(files.map(f => f.what.replace(/\/[^/]+$/, '')))) await yemotCall(token, 'UpdateExtension', { path: dir, type: dir === 'ivr2:' + extension ? 'menu' : 'playfile' }, fetchImpl);
+  for (const f of files) await yemotCall(token, 'UploadTextFile', f, fetchImpl);
+  return { ok: true, message: `שלוחה ${extension} מוגדרת. יחידות במערכת: ${s.units ?? '?'}` };
 }
