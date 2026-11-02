@@ -11,7 +11,7 @@
  * קוד המקור, ובו הטוקנים, גלוי רק לבעל הסקריפט.
  */
 
-var SCRIPT_VERSION = '1.2.1';
+var SCRIPT_VERSION = '1.2.2';
 var FIRE_URL_RE = /^https:\/\/api\.anthropic\.com\/v1\/claude_code\/routines\/trig_[A-Za-z0-9]+\/fire$/;
 var BETA_HEADER = 'experimental-cc-routine-2026-04-01';
 var TZ = 'Asia/Jerusalem';
@@ -174,7 +174,11 @@ function pollYemot_(cfg) {
   for (var i = from; i < lines.length; i++) {
     var row = parseYmgrLine_(lines[i]);
     var folder = trimSlashes_(row.Folder);
+    // קוד הכניסה והטלפונים המורשים מוגדרים בשלוחת התפריט. השורה שלה נכתבת ביציאה ממנה, לפני השורה של
+    // תת-השלוחה. שולחים רק בשיחה שעברה דרכה, ולא בקפיצה ישירה לתת-השלוחה.
+    if (folder === ext) { if (row.CallId) cache.put('yp:' + row.CallId, '1', 21600); continue; }
     if (folder.indexOf(ext + '/') !== 0) continue;
+    if (!row.CallId || !cache.get('yp:' + row.CallId)) { addLog_('טלפון', 'כניסה לתת-שלוחה שלא דרך התפריט', false); continue; }
     var digit = folder.slice(ext.length + 1);
     if (!/^[0-9]$/.test(digit) || !findKey_(cfg, digit)) continue;
     if (allowed.length && allowed.indexOf(normPhone_(row.Phone)) < 0) { addLog_('טלפון', 'שיחה ממספר לא מורשה', false); continue; }

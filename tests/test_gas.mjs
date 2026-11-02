@@ -72,7 +72,7 @@ test('הטריגר נוצר באישור ההרשאות ובקריאה הראש�
 test('ממשק לתוכנה: מפתח בלבד, יומן, ובלי פעולות שינוי', () => {
   const config = configFor(); const env = makeEnv({ config });
   for (const a of ['', 'x', 'k'.repeat(31), null]) assert.deepEqual(env.admin('ping', {}, a), { ok: false, error: 'NO_ACCESS' });
-  assert.equal(env.admin('ping').result.version, '1.2.1');
+  assert.equal(env.admin('ping').result.version, '1.2.2');
   yem(env, { k: config.yemot.key, ApiCallId: 'z', cw_choice: '1' });
   const log = env.admin('log').result;
   assert.equal(log.length, 1); assert.match(log[0].detail, /נשלח/);
@@ -97,7 +97,7 @@ test('שלוחת תפריט: הסקריפט קורא את יומן הכניסו�
   yemotLog(env, [['main', '0501234567', 'old'], ['8/1', '0501234567', 'old']]);
   env.g.tick();
   assert.equal(fires(env), 0, 'בהרצה הראשונה רק מסמנים את המקום ביומן, בלי לשלוח על שיחות ישנות');
-  yemotLog(env, [['main', '0501234567', 'old'], ['8/1', '0501234567', 'old'], ['main', '0501234567', 'c2'], ['8', '0501234567', 'c2'], ['8/2', '0501234567', 'c2'], ['8/7', '0501234567', 'c2'], ['9/1', '0501234567', 'c2']]);
+  yemotLog(env, [['main', '0501234567', 'old'], ['8/1', '0501234567', 'old'], ['main', '0501234567', 'c2'], ['8', '0501234567', 'c2'], ['8/2', '0501234567', 'c2'], ['8/7', '0501234567', 'c2'], ['9', '0501234567', 'c2'], ['9/1', '0501234567', 'c2']]);
   env.g.tick();
   assert.equal(fires(env), 1, 'רק 8/2: לא השלוחה הראשית, לא מקש שלא מוגדר ולא שלוחה אחרת');
   assert.deepEqual(JSON.parse(env.fetches.find(f => f.url === URL_OK).o.payload), { text: 'דוח' });
@@ -109,9 +109,12 @@ test('שלוחת תפריט: הסקריפט קורא את יומן הכניסו�
 test('שלוחת תפריט: טלפון לא מורשה, ותקלה בימות נרשמת פעם אחת', () => {
   const ref = {}; const env = ref.env = makeEnv({ now: new Date('2026-10-25T10:00:00Z'), config: configFor({ allowedPhones: '0501234567' }), fetchHook: ylogHook(ref) });
   env.g.tick();
-  yemotLog(env, [['8/1', '0529999999', 'a'], ['8/1', '972501234567', 'b']]);
+  yemotLog(env, [['8', '0529999999', 'a'], ['8/1', '0529999999', 'a'], ['8', '972501234567', 'b'], ['8/1', '972501234567', 'b']]);
   env.g.tick();
   assert.equal(fires(env), 1);
+  yemotLog(env, [['8', '0529999999', 'a'], ['8/1', '0529999999', 'a'], ['8', '972501234567', 'b'], ['8/1', '972501234567', 'b'], ['main', '0501234567', 'c'], ['8/1', '0501234567', 'c']]);
+  env.g.tick();
+  assert.equal(fires(env), 1, 'קפיצה ישירה לתת-שלוחה, בלי לעבור בתפריט (ובקוד שלו), לא שולחת');
   const bad = {}; const env2 = bad.env = makeEnv({ config: configFor({ token: 'wrong' }), fetchHook: ylogHook(bad) });
   env2.g.tick(); env2.g.tick(); env2.g.tick();
   assert.equal(env2.admin('log').result.filter(l => /ימות נכשלה/.test(l.detail)).length, 1);
